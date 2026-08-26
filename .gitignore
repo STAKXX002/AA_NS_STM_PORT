@@ -1,0 +1,15 @@
+# Build directories
+build/
+bin/
+obj/
+
+# IDE & Editor files
+.vscode/
+.idea/
+.settings/
+.mxproject
+*.launch
+
+# OS metadata
+.DS_Store
+Thumbs.db
