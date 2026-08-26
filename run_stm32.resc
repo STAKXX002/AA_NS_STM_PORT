@@ -1,0 +1,13 @@
+mach create "stm32f446"
+machine LoadPlatformDescription @platforms/cpus/stm32f4.repl
+
+sysbus LoadELF @build/Debug/AA_NS_STM_V1.elf
+
+# Set active-low limit switches (PB8, PB10) HIGH on boot
+sysbus.gpioPortB OnGPIO 8 true
+sysbus.gpioPortB OnGPIO 10 true
+
+emulation CreateServerSocketTerminal 1234 "uart_terminal"
+connector Connect sysbus.usart2 uart_terminal
+
+start
