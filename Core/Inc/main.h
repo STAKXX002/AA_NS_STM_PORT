@@ -67,6 +67,14 @@ void Error_Handler(void);
 #define Z1_EN_GPIO_Port GPIOB
 #define Z1_LIMIT_Pin GPIO_PIN_10
 #define Z1_LIMIT_GPIO_Port GPIOB
+#define GRIP_IN1_Pin GPIO_PIN_12
+#define GRIP_IN1_GPIO_Port GPIOB
+#define GRIP_IN2_Pin GPIO_PIN_13
+#define GRIP_IN2_GPIO_Port GPIOB
+#define GRIP_IN3_Pin GPIO_PIN_14
+#define GRIP_IN3_GPIO_Port GPIOB
+#define GRIP_IN4_Pin GPIO_PIN_15
+#define GRIP_IN4_GPIO_Port GPIOB
 #define Z2_STEP_Pin GPIO_PIN_4
 #define Z2_STEP_GPIO_Port GPIOB
 #define Z2_DIR_Pin GPIO_PIN_5

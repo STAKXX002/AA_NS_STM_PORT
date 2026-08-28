@@ -67,10 +67,14 @@ UART_HandleTypeDef huart2;
 #define STEP_INTERVAL_START   60L    // slow start: 10kHz/60 ≈ 167 Hz
 #define RAMP_TICKS             5000L // ramp duration: 5000 * 100us = 500ms
 
+#define OPEN_DURATION_MS   5000UL
+#define CLOSE_DURATION_MS  5000UL
+
 typedef enum {
     IDLE, CALIBRATING, CAL_STOPPING, CAL_BACKOFF,
     GOING, HOLD, RETURNING, RETURNED,
-    RECOVERY, REC_STOPPING, REC_BACKOFF, FAULT
+    RECOVERY, REC_STOPPING, REC_BACKOFF, FAULT,
+    OPENING, CLOSING
 } SystemState;
 
 typedef struct {
@@ -136,6 +140,27 @@ void enable_motors(void) {
 void disable_motors(void) {
     HAL_GPIO_WritePin(Z1_EN_GPIO_Port, Z1_EN_Pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(Z2_EN_GPIO_Port, Z2_EN_Pin, GPIO_PIN_SET);
+}
+
+void gripper_forward(void) {
+    HAL_GPIO_WritePin(GRIP_IN1_GPIO_Port, GRIP_IN1_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GRIP_IN2_GPIO_Port, GRIP_IN2_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GRIP_IN3_GPIO_Port, GRIP_IN3_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GRIP_IN4_GPIO_Port, GRIP_IN4_Pin, GPIO_PIN_RESET);
+}
+
+void gripper_reverse(void) {
+    HAL_GPIO_WritePin(GRIP_IN1_GPIO_Port, GRIP_IN1_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GRIP_IN2_GPIO_Port, GRIP_IN2_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GRIP_IN3_GPIO_Port, GRIP_IN3_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GRIP_IN4_GPIO_Port, GRIP_IN4_Pin, GPIO_PIN_SET);
+}
+
+void gripper_stop(void) {
+    HAL_GPIO_WritePin(GRIP_IN1_GPIO_Port, GRIP_IN1_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GRIP_IN2_GPIO_Port, GRIP_IN2_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GRIP_IN3_GPIO_Port, GRIP_IN3_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GRIP_IN4_GPIO_Port, GRIP_IN4_Pin, GPIO_PIN_RESET);
 }
 
 void axis_move_to(volatile StepperAxis* axis, long target) {
@@ -448,6 +473,19 @@ int main(void)
             calibrated = true; state = RETURNED;
             printf("REC OK\r\nZERO\r\nRETURNED\r\n");
         }
+    }else if (state == OPENING) {
+        if (now - stateStart > OPEN_DURATION_MS) {
+            gripper_stop();
+            state = IDLE;
+            printf("OPENED\r\n");
+        }
+    }
+    else if (state == CLOSING) {
+        if (now - stateStart > CLOSE_DURATION_MS) {
+            gripper_stop();
+            state = IDLE;
+            printf("CLOSED\r\n");
+        }
     }
 
     if (cmd_ready) {
@@ -476,6 +514,18 @@ int main(void)
             reset_axis_zero();
             clearHits(); calibrated = false; state = IDLE;
             printf("RST\r\nNO CAL\r\n");
+        } else if (strcmp(rx_buffer, "OPEN") == 0) {
+            if (state == IDLE) {
+                gripper_forward();
+                state = OPENING; stateStart = now;
+                printf("OPENING\r\n");
+            } else printf("BUSY\r\n");
+        } else if (strcmp(rx_buffer, "CLOSE") == 0) {
+            if (state == IDLE) {
+                gripper_reverse();
+                state = CLOSING; stateStart = now;
+                printf("CLOSING\r\n");
+            } else printf("BUSY\r\n");
         }
     }
   }
@@ -631,12 +681,15 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, Z1_STEP_Pin|Z1_DIR_Pin|Z1_EN_Pin|Z2_STEP_Pin
+  HAL_GPIO_WritePin(GPIOB, Z1_STEP_Pin|Z1_DIR_Pin|Z1_EN_Pin|GRIP_IN1_Pin
+                          |GRIP_IN2_Pin|GRIP_IN3_Pin|GRIP_IN4_Pin|Z2_STEP_Pin
                           |Z2_DIR_Pin|Z2_EN_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : Z1_STEP_Pin Z1_DIR_Pin Z1_EN_Pin Z2_STEP_Pin
+  /*Configure GPIO pins : Z1_STEP_Pin Z1_DIR_Pin Z1_EN_Pin GRIP_IN1_Pin
+                           GRIP_IN2_Pin GRIP_IN3_Pin GRIP_IN4_Pin Z2_STEP_Pin
                            Z2_DIR_Pin Z2_EN_Pin */
-  GPIO_InitStruct.Pin = Z1_STEP_Pin|Z1_DIR_Pin|Z1_EN_Pin|Z2_STEP_Pin
+  GPIO_InitStruct.Pin = Z1_STEP_Pin|Z1_DIR_Pin|Z1_EN_Pin|GRIP_IN1_Pin
+                          |GRIP_IN2_Pin|GRIP_IN3_Pin|GRIP_IN4_Pin|Z2_STEP_Pin
                           |Z2_DIR_Pin|Z2_EN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
