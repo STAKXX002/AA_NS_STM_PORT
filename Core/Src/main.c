@@ -64,6 +64,9 @@ UART_HandleTypeDef huart2;
 #define RECOVERY_TIMEOUT  15000UL
 #define MOVE_TIMEOUT      60000UL // CHANGE FROM 20000UL TO 60000UL
 
+#define STEP_INTERVAL_START   60L    // slow start: 10kHz/60 ≈ 167 Hz
+#define RAMP_TICKS             5000L // ramp duration: 5000 * 100us = 500ms
+
 typedef enum {
     IDLE, CALIBRATING, CAL_STOPPING, CAL_BACKOFF,
     GOING, HOLD, RETURNING, RETURNED,
@@ -74,7 +77,9 @@ typedef struct {
     long current_pos;
     long target_pos;
     long step_accumulator;
-    long step_interval; 
+    long step_interval;         // keep this — now used as the CRUISE (minimum) interval
+    long step_interval_current; // current ramp position
+    uint32_t move_start_tick;   // isrTicks value when this move began
     GPIO_TypeDef* step_port; uint16_t step_pin;
     GPIO_TypeDef* dir_port;  uint16_t dir_pin;
 } StepperAxis;
@@ -91,6 +96,7 @@ char rx_buffer[32];
 uint8_t rx_char;
 uint8_t rx_idx = 0;
 volatile bool cmd_ready = false;
+volatile uint32_t isrTicks = 0;   // free-running, incremented every ISR call (100us per tick)
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -134,6 +140,8 @@ void disable_motors(void) {
 
 void axis_move_to(volatile StepperAxis* axis, long target) {
     axis->target_pos = target;
+    axis->move_start_tick = isrTicks;
+    axis->step_interval_current = STEP_INTERVAL_START;
     if (target > axis->current_pos) {
         HAL_GPIO_WritePin(axis->dir_port, axis->dir_pin, GPIO_PIN_SET);
     } else if (target < axis->current_pos) {
@@ -195,9 +203,28 @@ void startCal(void) {
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     if (htim->Instance == TIM3) {
+        isrTicks++;
+
+        // Update ramp for both axes every tick, independent of stepping
+        uint32_t elapsed1 = isrTicks - z1.move_start_tick;
+        if (elapsed1 >= (uint32_t)RAMP_TICKS) {
+            z1.step_interval_current = z1.step_interval;
+        } else {
+            long delta = STEP_INTERVAL_START - z1.step_interval;
+            z1.step_interval_current = STEP_INTERVAL_START - (delta * (long)elapsed1) / RAMP_TICKS;
+        }
+
+        uint32_t elapsed2 = isrTicks - z2.move_start_tick;
+        if (elapsed2 >= (uint32_t)RAMP_TICKS) {
+            z2.step_interval_current = z2.step_interval;
+        } else {
+            long delta = STEP_INTERVAL_START - z2.step_interval;
+            z2.step_interval_current = STEP_INTERVAL_START - (delta * (long)elapsed2) / RAMP_TICKS;
+        }
+
         if (z1.current_pos != z1.target_pos) {
             z1.step_accumulator++;
-            if (z1.step_accumulator >= z1.step_interval) {
+            if (z1.step_accumulator >= z1.step_interval_current) {
                 z1.step_accumulator = 0;
 
                 // Z1 Pulse Generation
@@ -209,7 +236,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
         }
         if (z2.current_pos != z2.target_pos) {
             z2.step_accumulator++;
-            if (z2.step_accumulator >= z2.step_interval) {
+            if (z2.step_accumulator >= z2.step_interval_current) {
                 z2.step_accumulator = 0;
 
                 // Z2 Pulse Generation
@@ -272,11 +299,11 @@ int main(void)
   /* USER CODE BEGIN 2 */
   z1.step_port = Z1_STEP_GPIO_Port; z1.step_pin = Z1_STEP_Pin;
   z1.dir_port  = Z1_DIR_GPIO_Port;  z1.dir_pin  = Z1_DIR_Pin;
-  z1.step_interval = 1; // CHANGE FROM 25 TO 1
+  z1.step_interval = 10; // CHANGE FROM 25 TO 10
 
   z2.step_port = Z2_STEP_GPIO_Port; z2.step_pin = Z2_STEP_Pin;
   z2.dir_port  = Z2_DIR_GPIO_Port;  z2.dir_pin  = Z2_DIR_Pin;
-  z2.step_interval = 1; // CHANGE FROM 25 TO 1
+  z2.step_interval = 10; // CHANGE FROM 25 TO 10
 
   enable_motors();
   HAL_TIM_Base_Start_IT(&htim3);
