@@ -96,7 +96,7 @@ bool z1Hit = false, z2Hit = false;
 long z1HitPos = 0, z2HitPos = 0;
 uint32_t stateStart = 0;
 
-char rx_buffer[32];
+volatile char rx_buffer[32];
 uint8_t rx_char;
 uint8_t rx_idx = 0;
 volatile bool cmd_ready = false;
@@ -490,10 +490,10 @@ int main(void)
 
     if (cmd_ready) {
         cmd_ready = false;
-        if (strcmp(rx_buffer, "CAL") == 0) {
+        if (strcmp((const char*)rx_buffer, "CAL") == 0) {
             if (state == IDLE) startCal();
             else printf("BUSY\r\n");
-        } else if (strcmp(rx_buffer, "GO") == 0) {
+        } else if (strcmp((const char*)rx_buffer, "GO") == 0) {
             if (!calibrated) printf("NO CAL\r\n");
             else if (state == IDLE || state == RETURNED) {
                 clearHits(); enable_motors();
@@ -501,7 +501,7 @@ int main(void)
                 state = GOING; stateStart = now;
                 printf("GO\r\n");
             } else printf("BUSY\r\n");
-        } else if (strcmp(rx_buffer, "RET") == 0) {
+        } else if (strcmp((const char*)rx_buffer, "RET") == 0) {
             if (!calibrated) printf("NO CAL\r\n");
             else if (state == HOLD) {
                 clearHits();
@@ -509,18 +509,18 @@ int main(void)
                 state = RETURNING; stateStart = now;
                 printf("RET\r\n");
             } else printf("INVALID\r\n");
-        } else if (strcmp(rx_buffer, "RST") == 0) {
+        } else if (strcmp((const char*)rx_buffer, "RST") == 0) {
             axis_stop(&z1); axis_stop(&z2); enable_motors();
             reset_axis_zero();
             clearHits(); calibrated = false; state = IDLE;
             printf("RST\r\nNO CAL\r\n");
-        } else if (strcmp(rx_buffer, "OPEN") == 0) {
+        } else if (strcmp((const char*)rx_buffer, "OPEN") == 0) {
             if (state == IDLE) {
                 gripper_forward();
                 state = OPENING; stateStart = now;
                 printf("OPENING\r\n");
             } else printf("BUSY\r\n");
-        } else if (strcmp(rx_buffer, "CLOSE") == 0) {
+        } else if (strcmp((const char*)rx_buffer, "CLOSE") == 0) {
             if (state == IDLE) {
                 gripper_reverse();
                 state = CLOSING; stateStart = now;
