@@ -276,14 +276,18 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
     if (huart->Instance == USART2) {
-        if (rx_char == '\r' || rx_char == '\n') {
+        if (rx_char == '\r') {
+            // Ignore carriage return so \r\n acts as a single line terminator
+        } else if (rx_char == '\n') {
             if (rx_idx > 0 && !cmd_ready) {
                 rx_buffer[rx_idx] = '\0';
                 cmd_ready = true;
                 rx_idx = 0;
             }
-        } else if (rx_idx < sizeof(rx_buffer) - 1 && !cmd_ready) {
-            rx_buffer[rx_idx++] = rx_char;
+        } else {
+            if (rx_idx < sizeof(rx_buffer) - 1 && !cmd_ready) {
+                rx_buffer[rx_idx++] = rx_char;
+            }
         }
         HAL_UART_Receive_IT(&huart2, &rx_char, 1);
     }
