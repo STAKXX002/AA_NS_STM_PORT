@@ -175,7 +175,9 @@ void axis_move_to(volatile StepperAxis* axis, long target) {
 }
 
 void axis_stop(volatile StepperAxis* axis) {
+    __HAL_TIM_DISABLE_IT(&htim3, TIM_IT_UPDATE);
     axis->target_pos = axis->current_pos;
+    __HAL_TIM_ENABLE_IT(&htim3, TIM_IT_UPDATE);
 }
 
 bool axes_done(void) {
