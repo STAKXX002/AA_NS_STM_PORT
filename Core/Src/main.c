@@ -124,7 +124,7 @@ void reset_axis_zero(void) {
 }
 
 int _write(int file, char *ptr, int len) {
-    HAL_UART_Transmit(&huart2, (uint8_t*)ptr, len, HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart2, (uint8_t*)ptr, len, 100);
     return len;
 }
 
