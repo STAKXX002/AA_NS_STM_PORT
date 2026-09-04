@@ -340,8 +340,8 @@ int main(void)
   /* Initialize leds */
   BSP_LED_Init(LED2);
 
-  /* Initialize USER push-button, will be used to trigger an interrupt each time it's pressed.*/
-  BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
+    /* Initialize USER push-button in pure GPIO mode (no EXTI) */
+    BSP_PB_Init(BUTTON_USER, BUTTON_MODE_GPIO);
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
