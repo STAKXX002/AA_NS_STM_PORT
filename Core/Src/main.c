@@ -408,8 +408,8 @@ int main(void)
         } else if (axes_done()) {
             reset_axis_zero();
             clearHits();
-            calibrated = true; state = IDLE;
-            printf("CAL OK\r\nZERO\r\n");
+            state = IDLE;
+            printf("CAL OK\r\n");
         }
     }
     else if (state == GOING) {
