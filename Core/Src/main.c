@@ -530,8 +530,8 @@ int main(void)
             clearHits(); calibrated = false; state = IDLE;
             printf("RST\r\nNO CAL\r\n");
         } else if (strcmp((const char*)rx_buffer, "OPEN") == 0) {
-            if (state == IDLE) {
-                gripper_forward();
+            if (state == IDLE || state == RETURNED) { // Allow execution from RETURNED state
+                hatch_forward();
                 state = OPENING; stateStart = now;
                 printf("OPENING\r\n");
             } else printf("BUSY\r\n");
