@@ -13,3 +13,13 @@ obj/
 # OS metadata
 .DS_Store
 Thumbs.db
+
+# Python Virtual Environment & Artifacts
+.venv/
+env/
+venv/
+__pycache__/
+*.py[cod]
+
+# Simulation Logs
+*.log
