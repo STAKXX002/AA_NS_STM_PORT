@@ -394,6 +394,8 @@ int main(void)
             if (!skewOK()) {
                 fault("CAL SKEW");
             } else {
+                printf("ZERO\r\n"); // Signal test runner immediately
+                calibrated = true; 
                 axis_move_to(&z1, z1.current_pos + (BACKOFF_DIR * RECOVERY_STEPS));
                 axis_move_to(&z2, z2.current_pos + (BACKOFF_DIR * RECOVERY_STEPS));
                 state = CAL_BACKOFF; stateStart = now;
