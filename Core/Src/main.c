@@ -228,6 +228,15 @@ void startCal(void) {
     printf("CAL\r\n");
 }
 
+// Safer function to retrieve current axis position without ISR race conditions
+long get_axis_position(volatile StepperAxis* axis) {
+    __disable_irq();
+    long pos = axis->current_pos;
+    __enable_irq();
+    return pos;
+}
+
+// Optimized ISR without NOP blocking loops
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     if (htim->Instance == TIM3) {
         isrTicks++;
