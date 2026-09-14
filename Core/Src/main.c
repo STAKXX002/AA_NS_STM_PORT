@@ -142,21 +142,21 @@ void disable_motors(void) {
     HAL_GPIO_WritePin(Z2_EN_GPIO_Port, Z2_EN_Pin, GPIO_PIN_SET);
 }
 
-void gripper_forward(void) {
+void hatch_forward(void) {
     HAL_GPIO_WritePin(GRIP_IN1_GPIO_Port, GRIP_IN1_Pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(GRIP_IN2_GPIO_Port, GRIP_IN2_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GRIP_IN3_GPIO_Port, GRIP_IN3_Pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(GRIP_IN4_GPIO_Port, GRIP_IN4_Pin, GPIO_PIN_RESET);
 }
 
-void gripper_reverse(void) {
+void hatch_reverse(void) {
     HAL_GPIO_WritePin(GRIP_IN1_GPIO_Port, GRIP_IN1_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GRIP_IN2_GPIO_Port, GRIP_IN2_Pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(GRIP_IN3_GPIO_Port, GRIP_IN3_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GRIP_IN4_GPIO_Port, GRIP_IN4_Pin, GPIO_PIN_SET);
 }
 
-void gripper_stop(void) {
+void hatch_stop(void) {
     HAL_GPIO_WritePin(GRIP_IN1_GPIO_Port, GRIP_IN1_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GRIP_IN2_GPIO_Port, GRIP_IN2_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GRIP_IN3_GPIO_Port, GRIP_IN3_Pin, GPIO_PIN_RESET);
@@ -241,7 +241,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     if (htim->Instance == TIM3) {
         isrTicks++;
 
-        // Update ramp for both axes every tick, independent of stepping
+        // Ramp update for Z1
         uint32_t elapsed1 = isrTicks - z1.move_start_tick;
         if (elapsed1 >= (uint32_t)RAMP_TICKS) {
             z1.step_interval_current = z1.step_interval;
@@ -490,14 +490,14 @@ int main(void)
         }
     }else if (state == OPENING) {
         if (now - stateStart > OPEN_DURATION_MS) {
-            gripper_stop();
+            hatch_stop();
             state = IDLE;
             printf("OPENED\r\n");
         }
     }
     else if (state == CLOSING) {
         if (now - stateStart > CLOSE_DURATION_MS) {
-            gripper_stop();
+            hatch_stop();
             state = IDLE;
             printf("CLOSED\r\n");
         }
