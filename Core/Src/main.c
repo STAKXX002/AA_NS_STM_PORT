@@ -536,8 +536,8 @@ int main(void)
                 printf("OPENING\r\n");
             } else printf("BUSY\r\n");
         } else if (strcmp((const char*)rx_buffer, "CLOSE") == 0) {
-            if (state == IDLE) {
-                gripper_reverse();
+            if (state == IDLE || state == RETURNED) { // Allow execution from RETURNED state
+                hatch_reverse();
                 state = CLOSING; stateStart = now;
                 printf("CLOSING\r\n");
             } else printf("BUSY\r\n");
