@@ -250,6 +250,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
             z1.step_interval_current = STEP_INTERVAL_START - (delta * (long)elapsed1) / RAMP_TICKS;
         }
 
+        // Ramp update for Z2
         uint32_t elapsed2 = isrTicks - z2.move_start_tick;
         if (elapsed2 >= (uint32_t)RAMP_TICKS) {
             z2.step_interval_current = z2.step_interval;
@@ -258,32 +259,30 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
             z2.step_interval_current = STEP_INTERVAL_START - (delta * (long)elapsed2) / RAMP_TICKS;
         }
 
+        // Z1 Step Generation
         if (z1.current_pos != z1.target_pos) {
             z1.step_accumulator++;
             if (z1.step_accumulator >= z1.step_interval_current) {
                 z1.step_accumulator = 0;
-
-                // Z1 Pulse Generation
                 HAL_GPIO_WritePin(z1.step_port, z1.step_pin, GPIO_PIN_SET);
-                for (volatile int i = 0; i < 120; i++) __NOP(); // ~2.5 µs delay at 180 MHz
                 z1.current_pos += (z1.target_pos > z1.current_pos) ? 1 : -1;
                 HAL_GPIO_WritePin(z1.step_port, z1.step_pin, GPIO_PIN_RESET);
             }
         }
+
+        // Z2 Step Generation
         if (z2.current_pos != z2.target_pos) {
             z2.step_accumulator++;
             if (z2.step_accumulator >= z2.step_interval_current) {
                 z2.step_accumulator = 0;
-
-                // Z2 Pulse Generation
                 HAL_GPIO_WritePin(z2.step_port, z2.step_pin, GPIO_PIN_SET);
-                for (volatile int i = 0; i < 120; i++) __NOP(); // ~2.5 µs delay at 180 MHz
                 z2.current_pos += (z2.target_pos > z2.current_pos) ? 1 : -1;
                 HAL_GPIO_WritePin(z2.step_port, z2.step_pin, GPIO_PIN_RESET);
             }
         }
     }
 }
+
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
     if (huart->Instance == USART2) {
         if (rx_char == '\r') {
