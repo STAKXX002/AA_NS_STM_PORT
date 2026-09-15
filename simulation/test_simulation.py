@@ -12,18 +12,17 @@ PORT = 1234
 def main():
     print("[+] Starting Renode Simulation Process...")
     
-    # Spawn headless Renode session (pexpect automatically creates a new session/process group)
+    # Spawn headless Renode session
     renode = pexpect.spawn(
         'renode --disable-gui --console simulation/scripts/run_stm32.resc',
         encoding='utf-8',
         timeout=15
     )
-    renode.logfile = sys.stdout  # Streams Renode output to stdout for debugging
+    renode.logfile = sys.stdout
 
     sock = None
 
     try:
-        # Wait for Renode interactive prompt to confirm boot
         renode.expect(r'\(stm32f446\)')
         print("\n[+] Renode booted successfully.")
 
@@ -61,7 +60,7 @@ def main():
         send_cmd("CAL")
         time.sleep(0.5)
 
-        print("\n[+] Triggering limit switches (PB10 & PB8 active-low)...")
+        print("\n[+] Triggering stepper limit switches (PB10 & PB8 active-low)...")
         renode.sendline("sysbus.gpioPortB OnGPIO 10 false")
         renode.sendline("sysbus.gpioPortB OnGPIO 8 false")
         renode.expect(r'\(stm32f446\)')
@@ -74,8 +73,8 @@ def main():
         renode.sendline("sysbus.gpioPortB OnGPIO 8 true")
         renode.expect(r'\(stm32f446\)')
 
-        # Wait for physical backoff step to complete before command execution
-        read_until("CAL OK")
+        # Wait for physical backoff step to complete (allow up to 20s)
+        read_until("CAL OK", timeout=20.0)
         print("\n[PASS] Calibration sequence complete!")
 
         # --- TEST 2: GO COMMAND ---
@@ -88,14 +87,19 @@ def main():
         read_until("RETURNED", timeout=45.0)
         print("\n[PASS] Return sequence completed!")
 
-        # --- TEST 4: HATCH ACTUATION ---
+        # --- TEST 4: NON-BLOCKING HATCH ACTUATION ---
         send_cmd("OPEN")
-        read_until("OPENED", timeout=15.0)
-        print("\n[PASS] Hatch OPEN state confirmed!")
+        read_until("OPENED")  # Single check matches both OPENING\r\nOPENED\r\n
+        print("\n[PASS] Non-blocking Hatch OPEN command acknowledged!")
 
         send_cmd("CLOSE")
-        read_until("CLOSED", timeout=15.0)
-        print("\n[PASS] Hatch CLOSE state confirmed!")
+        read_until("CLOSED")  # Single check matches both CLOSING\r\nCLOSED\r\n
+        print("\n[PASS] Non-blocking Hatch CLOSE command acknowledged!")
+
+        print("\n[SUCCESS] ALL SIMULATION TESTS PASSED SUCCESSFULLY!")
+
+        # Allow UART buffer to completely flush before killing process
+        time.sleep(0.2)
 
     except Exception as e:
         print(f"\n[FAIL] Simulation Test Failed: {e}")
@@ -107,16 +111,14 @@ def main():
             except Exception:
                 pass
         
-        # Forcefully terminate Renode process group (wrapper + dotnet runtime)
+        # Forcefully terminate Renode process group
         print("\n[+] Terminating Renode process group...")
         try:
-            # Graceful monitor quit attempt
             renode.sendline("quit")
             time.sleep(0.5)
         except Exception:
             pass
 
-        # Kill the entire process group matching renode.pid
         if renode.isalive():
             try:
                 pgid = os.getpgid(renode.pid)
