@@ -542,18 +542,20 @@ int main(void)
             printf("RST\r\nNO CAL\r\n");
         } else if (strcmp((const char*)rx_buffer, "OPEN") == 0) {
             if (state == IDLE || state == RETURNED || state == CLOSING) {
-                hatch_forward(); // Keep driver output HIGH (actuator cuts power internally at full length)
+                hatch_forward();
+                stateStart = now; // ADDED: Timestamp update
                 state = OPENING;
-                printf("OPENING\r\nOPENED\r\n"); // Acknowledge command completion immediately
+                printf("OPENING\r\n"); // REMOVED: Immediate "OPENED\r\n"
             } else {
                 printf("BUSY\r\n");
             }
         } 
         else if (strcmp((const char*)rx_buffer, "CLOSE") == 0) {
             if (state == IDLE || state == RETURNED || state == OPENING) {
-                hatch_reverse(); // Keep driver output HIGH (actuator cuts power internally at 0mm)
+                hatch_reverse();
+                stateStart = now; // ADDED: Timestamp update
                 state = CLOSING;
-                printf("CLOSING\r\nCLOSED\r\n"); // Acknowledge command completion immediately
+                printf("CLOSING\r\n"); // REMOVED: Immediate "CLOSED\r\n"
             } else {
                 printf("BUSY\r\n");
             }
