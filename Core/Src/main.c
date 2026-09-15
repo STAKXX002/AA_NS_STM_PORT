@@ -397,7 +397,9 @@ int main(void)
         }
     }
     else if (state == CAL_STOPPING) {
-        if (axes_done()) {
+        if (now - stateStart > CAL_TIMEOUT) { // ADDED: Timeout check
+            fault("CAL STOP TIMEOUT");
+        } else if (axes_done()) {
             if (!skewOK()) {
                 fault("CAL SKEW");
             } else {
