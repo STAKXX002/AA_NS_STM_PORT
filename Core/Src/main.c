@@ -403,7 +403,7 @@ int main(void)
             if (!skewOK()) {
                 fault("CAL SKEW");
             } else {
-                printf("ZERO\r\n"); // Signal test runner immediately
+                printf("ZERO\r\n");
                 calibrated = true; 
                 axis_move_to(&z1, z1.current_pos + (BACKOFF_DIR * RECOVERY_STEPS));
                 axis_move_to(&z2, z2.current_pos + (BACKOFF_DIR * RECOVERY_STEPS));
@@ -478,7 +478,9 @@ int main(void)
         }
     }
     else if (state == REC_STOPPING) {
-        if (axes_done()) {
+        if (now - stateStart > RECOVERY_TIMEOUT) { // ADDED: Timeout check
+            fault("REC STOP TIMEOUT");
+        } else if (axes_done()) {
             if (!skewOK()) {
                 fault("REC SKEW");
             } else {
