@@ -165,14 +165,17 @@ void hatch_stop(void) {
 }
 
 void axis_move_to(volatile StepperAxis* axis, long target) {
+    __disable_irq(); // ADDED: Atomic guard
     axis->target_pos = target;
     axis->move_start_tick = isrTicks;
     axis->step_interval_current = STEP_INTERVAL_START;
+    axis->step_accumulator = 0;
     if (target > axis->current_pos) {
         HAL_GPIO_WritePin(axis->dir_port, axis->dir_pin, GPIO_PIN_SET);
     } else if (target < axis->current_pos) {
         HAL_GPIO_WritePin(axis->dir_port, axis->dir_pin, GPIO_PIN_RESET);
     }
+    __enable_irq();  // ADDED: Atomic guard
 }
 
 void axis_stop(volatile StepperAxis* axis) {
