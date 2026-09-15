@@ -115,12 +115,10 @@ static void MX_USART2_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 void reset_axis_zero(void) {
-    __HAL_TIM_DISABLE_IT(&htim3, TIM_IT_UPDATE);
-    z1.current_pos = 0; 
-    z1.target_pos = 0;
-    z2.current_pos = 0; 
-    z2.target_pos = 0;
-    __HAL_TIM_ENABLE_IT(&htim3, TIM_IT_UPDATE);
+    __disable_irq(); // ADDED: Atomic guard
+    z1.current_pos = 0; z1.target_pos = 0; z1.step_accumulator = 0;
+    z2.current_pos = 0; z2.target_pos = 0; z2.step_accumulator = 0;
+    __enable_irq();  // ADDED: Atomic guard
 }
 
 int _write(int file, char *ptr, int len) {
