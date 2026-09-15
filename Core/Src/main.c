@@ -143,6 +143,7 @@ void disable_motors(void) {
 }
 
 void hatch_forward(void) {
+    // Enable H-bridge to push actuator out to full 100mm extension
     HAL_GPIO_WritePin(GRIP_IN1_GPIO_Port, GRIP_IN1_Pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(GRIP_IN2_GPIO_Port, GRIP_IN2_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GRIP_IN3_GPIO_Port, GRIP_IN3_Pin, GPIO_PIN_SET);
@@ -150,6 +151,7 @@ void hatch_forward(void) {
 }
 
 void hatch_reverse(void) {
+    // Enable H-bridge in reverse polarity to fully retract actuator
     HAL_GPIO_WritePin(GRIP_IN1_GPIO_Port, GRIP_IN1_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GRIP_IN2_GPIO_Port, GRIP_IN2_Pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(GRIP_IN3_GPIO_Port, GRIP_IN3_Pin, GPIO_PIN_RESET);
@@ -157,6 +159,7 @@ void hatch_reverse(void) {
 }
 
 void hatch_stop(void) {
+    // Cut H-bridge output completely
     HAL_GPIO_WritePin(GRIP_IN1_GPIO_Port, GRIP_IN1_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GRIP_IN2_GPIO_Port, GRIP_IN2_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GRIP_IN3_GPIO_Port, GRIP_IN3_Pin, GPIO_PIN_RESET);
@@ -530,17 +533,27 @@ int main(void)
             clearHits(); calibrated = false; state = IDLE;
             printf("RST\r\nNO CAL\r\n");
         } else if (strcmp((const char*)rx_buffer, "OPEN") == 0) {
-            if (state == IDLE || state == RETURNED) { // Allow execution from RETURNED state
-                hatch_forward();
-                state = OPENING; stateStart = now;
-                printf("OPENING\r\n");
-            } else printf("BUSY\r\n");
-        } else if (strcmp((const char*)rx_buffer, "CLOSE") == 0) {
-            if (state == IDLE || state == RETURNED) { // Allow execution from RETURNED state
-                hatch_reverse();
-                state = CLOSING; stateStart = now;
-                printf("CLOSING\r\n");
-            } else printf("BUSY\r\n");
+            if (state == IDLE || state == RETURNED || state == CLOSING) {
+                hatch_forward(); // Keep driver output HIGH (actuator cuts power internally at full length)
+                state = OPENING;
+                printf("OPENING\r\nOPENED\r\n"); // Acknowledge command completion immediately
+            } else {
+                printf("BUSY\r\n");
+            }
+        } 
+        else if (strcmp((const char*)rx_buffer, "CLOSE") == 0) {
+            if (state == IDLE || state == RETURNED || state == OPENING) {
+                hatch_reverse(); // Keep driver output HIGH (actuator cuts power internally at 0mm)
+                state = CLOSING;
+                printf("CLOSING\r\nCLOSED\r\n"); // Acknowledge command completion immediately
+            } else {
+                printf("BUSY\r\n");
+            }
+        }
+        else if (strcmp((const char*)rx_buffer, "STOP") == 0) {
+            hatch_stop();
+            state = IDLE;
+            printf("HATCH STOPPED\r\n");
         }
     }
   }
