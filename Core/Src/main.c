@@ -185,9 +185,11 @@ void axis_stop(volatile StepperAxis* axis) {
 }
 
 bool axes_done(void) {
-    return (z1.current_pos == z1.target_pos) && (z2.current_pos == z2.target_pos);
+    __disable_irq(); // ADDED: Atomic guard
+    bool done = (z1.current_pos == z1.target_pos) && (z2.current_pos == z2.target_pos);
+    __enable_irq();  // ADDED: Atomic guard
+    return done;
 }
-
 void clearHits(void) {
     z1Hit = false; z2Hit = false;
     z1HitPos = 0; z2HitPos = 0;
