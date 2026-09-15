@@ -210,6 +210,7 @@ void fault(const char *msg) {
     axis_stop(&z1);
     axis_stop(&z2);
     disable_motors();
+    hatch_stop(); // ADDED: Cut H-bridge power on fault
     calibrated = false;
     state = FAULT;
     printf("FAULT: %s\r\n", msg);
