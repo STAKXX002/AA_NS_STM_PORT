@@ -114,6 +114,14 @@ static void MX_USART2_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void light_on(void) {
+    HAL_GPIO_WritePin(RELAY_GPIO_Port, RELAY_Pin, GPIO_PIN_SET);
+}
+
+void light_off(void) {
+    HAL_GPIO_WritePin(RELAY_GPIO_Port, RELAY_Pin, GPIO_PIN_RESET);
+}
+
 void reset_axis_zero(void) {
     __disable_irq(); // ADDED: Atomic guard
     z1.current_pos = 0; z1.target_pos = 0; z1.step_accumulator = 0;
@@ -190,6 +198,7 @@ bool axes_done(void) {
     __enable_irq();  // ADDED: Atomic guard
     return done;
 }
+
 void clearHits(void) {
     z1Hit = false; z2Hit = false;
     z1HitPos = 0; z2HitPos = 0;
