@@ -87,10 +87,12 @@ def main():
         read_until("RETURNED", timeout=45.0)
         print("\n[PASS] Return sequence completed!")
 
-        # --- TEST 4: NON-BLOCKING HATCH ACTUATION ---
+        # --- TEST 4: ASYNCHRONOUS HATCH ACTUATION ---
         send_cmd("OPEN")
-        read_until("OPENED")  # Single check matches both OPENING\r\nOPENED\r\n
-        print("\n[PASS] Non-blocking Hatch OPEN command acknowledged!")
+        read_until("OPENING")
+        # Increase timeout to 20.0s to allow Renode's virtual time to reach 5000ms
+        read_until("OPENED", timeout=20.0)  
+        print("\n[PASS] Hatch OPEN timed sequence completed!")
 
         send_cmd("CLOSE")
         read_until("CLOSING")
