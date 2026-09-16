@@ -93,8 +93,18 @@ def main():
         print("\n[PASS] Non-blocking Hatch OPEN command acknowledged!")
 
         send_cmd("CLOSE")
-        read_until("CLOSED")  # Single check matches both CLOSING\r\nCLOSED\r\n
-        print("\n[PASS] Non-blocking Hatch CLOSE command acknowledged!")
+        read_until("CLOSING")
+        read_until("CLOSED", timeout=20.0)
+        print("\n[PASS] Hatch CLOSE timed sequence completed!")
+
+        # --- TEST 5: LIGHT RELAY CONTROL ---
+        send_cmd("ON")
+        read_until("LIGHT ON")
+        print("\n[PASS] Relay LIGHT ON acknowledged!")
+
+        send_cmd("OFF")
+        read_until("LIGHT OFF")
+        print("\n[PASS] Relay LIGHT OFF acknowledged!")
 
         print("\n[SUCCESS] ALL SIMULATION TESTS PASSED SUCCESSFULLY!")
 
