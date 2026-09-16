@@ -110,20 +110,17 @@ def main():
 
         print("\n[SUCCESS] ALL SIMULATION TESTS PASSED SUCCESSFULLY!")
 
-        # Allow UART buffer to completely flush before killing process
         time.sleep(0.2)
 
     except Exception as e:
         print(f"\n[FAIL] Simulation Test Failed: {e}")
     finally:
-        # Guarantee network socket closure
         if sock:
             try:
                 sock.close()
             except Exception:
                 pass
         
-        # Forcefully terminate Renode process group
         print("\n[+] Terminating Renode process group...")
         try:
             renode.sendline("quit")
