@@ -7,13 +7,14 @@ emulation SetGlobalQuantum "0.0001"
 # Point directly to your compiled Debug ELF
 sysbus LoadELF @build/Debug/AA_NS_STM_V1.elf
 
-# Set active-low limit switches (PB8, PB10) HIGH on boot
+# Set active-low limit switches (PB8, PB10) HIGH on boot (unpressed state)
 sysbus.gpioPortB OnGPIO 8 true
 sysbus.gpioPortB OnGPIO 10 true
 
 # Set Relay Output (PB7) LOW on boot
 sysbus.gpioPortB OnGPIO 7 false
 
+# Setup socket server for UART2 communication with the Python script
 emulation CreateServerSocketTerminal 1234 "uart_terminal"
 connector Connect sysbus.usart2 uart_terminal
 
