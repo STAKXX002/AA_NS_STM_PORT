@@ -370,8 +370,8 @@ int main(void)
   /* Initialize leds */
   BSP_LED_Init(LED2);
 
-    /* Initialize USER push-button in pure GPIO mode (no EXTI) */
-    BSP_PB_Init(BUTTON_USER, BUTTON_MODE_GPIO);
+  /* Initialize USER push-button, will be used to trigger an interrupt each time it's pressed.*/
+  BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -529,7 +529,8 @@ int main(void)
         if (strcmp((const char*)rx_buffer, "CAL") == 0) {
             if (state == IDLE) startCal();
             else printf("BUSY\r\n");
-        } else if (strcmp((const char*)rx_buffer, "GO") == 0) {
+        } 
+        else if (strcmp((const char*)rx_buffer, "GO") == 0) {
             if (!calibrated) printf("NO CAL\r\n");
             else if (state == IDLE || state == RETURNED) {
                 clearHits(); enable_motors();
@@ -537,7 +538,8 @@ int main(void)
                 state = GOING; stateStart = now;
                 printf("GO\r\n");
             } else printf("BUSY\r\n");
-        } else if (strcmp((const char*)rx_buffer, "RET") == 0) {
+        } 
+        else if (strcmp((const char*)rx_buffer, "RET") == 0) {
             if (!calibrated) printf("NO CAL\r\n");
             else if (state == HOLD) {
                 clearHits();
@@ -545,12 +547,14 @@ int main(void)
                 state = RETURNING; stateStart = now;
                 printf("RET\r\n");
             } else printf("INVALID\r\n");
-        } else if (strcmp((const char*)rx_buffer, "RST") == 0) {
+        } 
+        else if (strcmp((const char*)rx_buffer, "RST") == 0) {
             axis_stop(&z1); axis_stop(&z2); enable_motors();
             reset_axis_zero();
             clearHits(); calibrated = false; state = IDLE;
             printf("RST\r\nNO CAL\r\n");
-        } else if (strcmp((const char*)rx_buffer, "OPEN") == 0) {
+        } 
+        else if (strcmp((const char*)rx_buffer, "OPEN") == 0) {
             if (state == IDLE || state == RETURNED || state == CLOSING) {
                 hatch_forward();
                 stateStart = now; // ADDED: Timestamp update
@@ -739,14 +743,14 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, Z1_STEP_Pin|Z1_DIR_Pin|Z1_EN_Pin|GRIP_IN1_Pin
                           |GRIP_IN2_Pin|GRIP_IN3_Pin|GRIP_IN4_Pin|Z2_STEP_Pin
-                          |Z2_DIR_Pin|Z2_EN_Pin, GPIO_PIN_RESET);
+                          |Z2_DIR_Pin|Z2_EN_Pin|RELAY_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : Z1_STEP_Pin Z1_DIR_Pin Z1_EN_Pin GRIP_IN1_Pin
                            GRIP_IN2_Pin GRIP_IN3_Pin GRIP_IN4_Pin Z2_STEP_Pin
-                           Z2_DIR_Pin Z2_EN_Pin */
+                           Z2_DIR_Pin Z2_EN_Pin RELAY_Pin */
   GPIO_InitStruct.Pin = Z1_STEP_Pin|Z1_DIR_Pin|Z1_EN_Pin|GRIP_IN1_Pin
                           |GRIP_IN2_Pin|GRIP_IN3_Pin|GRIP_IN4_Pin|Z2_STEP_Pin
-                          |Z2_DIR_Pin|Z2_EN_Pin;
+                          |Z2_DIR_Pin|Z2_EN_Pin|RELAY_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
