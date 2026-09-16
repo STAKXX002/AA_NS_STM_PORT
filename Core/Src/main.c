@@ -575,6 +575,14 @@ int main(void)
             state = IDLE;
             printf("HATCH STOPPED\r\n");
         }
+        else if (strcmp((const char*)rx_buffer, "ON") == 0) {
+            light_on();
+            printf("LIGHT ON\r\n");
+        }
+        else if (strcmp((const char*)rx_buffer, "OFF") == 0) {
+            light_off();
+            printf("LIGHT OFF\r\n");
+        }
     }
   }
   /* USER CODE END 3 */
