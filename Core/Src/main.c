@@ -261,25 +261,25 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     if (htim->Instance == TIM3) {
         isrTicks++;
 
-        // Ramp update for Z1
+        // Fast Ramp update Z1
         uint32_t elapsed1 = isrTicks - z1.move_start_tick;
         if (elapsed1 >= (uint32_t)RAMP_TICKS) {
             z1.step_interval_current = z1.step_interval;
         } else {
             long delta = STEP_INTERVAL_START - z1.step_interval;
-            z1.step_interval_current = STEP_INTERVAL_START - (delta * (long)elapsed1) / RAMP_TICKS;
+            z1.step_interval_current = STEP_INTERVAL_START - ((delta * (long)elapsed1) / RAMP_TICKS);
         }
 
-        // Ramp update for Z2
+        // Fast Ramp update Z2
         uint32_t elapsed2 = isrTicks - z2.move_start_tick;
         if (elapsed2 >= (uint32_t)RAMP_TICKS) {
             z2.step_interval_current = z2.step_interval;
         } else {
             long delta = STEP_INTERVAL_START - z2.step_interval;
-            z2.step_interval_current = STEP_INTERVAL_START - (delta * (long)elapsed2) / RAMP_TICKS;
+            z2.step_interval_current = STEP_INTERVAL_START - ((delta * (long)elapsed2) / RAMP_TICKS);
         }
 
-        // Z1 Step Generation
+        // Z1 Step Execution
         if (z1.current_pos != z1.target_pos) {
             z1.step_accumulator++;
             if (z1.step_accumulator >= z1.step_interval_current) {
@@ -290,7 +290,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
             }
         }
 
-        // Z2 Step Generation
+        // Z2 Step Execution
         if (z2.current_pos != z2.target_pos) {
             z2.step_accumulator++;
             if (z2.step_accumulator >= z2.step_interval_current) {
@@ -517,6 +517,9 @@ int main(void)
             hatch_stop();
             state = IDLE;
             printf("OPENED\r\n");
+        } else if (now - hatchLastRefresh > HATCH_REFRESH_MS) {
+            hatch_forward();          // re-assert in case the driver dropped it
+            hatchLastRefresh = now;
         }
     }
     else if (state == CLOSING) {
