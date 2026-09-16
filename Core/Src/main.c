@@ -527,6 +527,9 @@ int main(void)
             hatch_stop();
             state = IDLE;
             printf("CLOSED\r\n");
+        } else if (now - hatchLastRefresh > HATCH_REFRESH_MS) {
+            hatch_reverse();
+            hatchLastRefresh = now;
         }
     }
 
