@@ -564,24 +564,22 @@ int main(void)
             printf("RST\r\nNO CAL\r\n");
         } 
         else if (strcmp((const char*)rx_buffer, "OPEN") == 0) {
-            if (state == IDLE || state == RETURNED || state == CLOSING) {
+            if (state == IDLE) {
                 hatch_forward();
-                stateStart = now; // ADDED: Timestamp update
+                stateStart = now;
+                hatchLastRefresh = now;
                 state = OPENING;
-                printf("OPENING\r\n"); // REMOVED: Immediate "OPENED\r\n"
-            } else {
-                printf("BUSY\r\n");
-            }
-        } 
+                printf("OPENING\r\n");
+            } else printf("BUSY\r\n");
+        }
         else if (strcmp((const char*)rx_buffer, "CLOSE") == 0) {
-            if (state == IDLE || state == RETURNED || state == OPENING) {
+            if (state == IDLE) {
                 hatch_reverse();
-                stateStart = now; // ADDED: Timestamp update
+                stateStart = now;
+                hatchLastRefresh = now;
                 state = CLOSING;
-                printf("CLOSING\r\n"); // REMOVED: Immediate "CLOSED\r\n"
-            } else {
-                printf("BUSY\r\n");
-            }
+                printf("CLOSING\r\n");
+            } else printf("BUSY\r\n");
         }
         else if (strcmp((const char*)rx_buffer, "STOP") == 0) {
             hatch_stop();
