@@ -1,6 +1,9 @@
 mach create "stm32f446"
 machine LoadPlatformDescription @platforms/cpus/stm32f4.repl
 
+# Set quantum execution step to maintain accurate virtual time performance
+emulation SetGlobalQuantum "0.0001"
+
 # Point directly to your compiled Debug ELF
 sysbus LoadELF @build/Debug/AA_NS_STM_V1.elf
 
