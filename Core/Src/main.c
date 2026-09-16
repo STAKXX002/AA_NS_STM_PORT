@@ -67,8 +67,10 @@ UART_HandleTypeDef huart2;
 #define STEP_INTERVAL_START   60L    // slow start: 10kHz/60 ≈ 167 Hz
 #define RAMP_TICKS             5000L // ramp duration: 5000 * 100us = 500ms
 
-#define OPEN_DURATION_MS   5000UL
-#define CLOSE_DURATION_MS  5000UL
+#define OPEN_DURATION_MS   20000UL // Increased from 5000UL to allow full stroke
+#define CLOSE_DURATION_MS  20000UL // Increased from 5000UL to allow full stroke
+
+#define HATCH_REFRESH_MS   300UL   // re-assert drive signal this often during a stroke
 
 typedef enum {
     IDLE, CALIBRATING, CAL_STOPPING, CAL_BACKOFF,
