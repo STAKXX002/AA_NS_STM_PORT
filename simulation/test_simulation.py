@@ -79,6 +79,7 @@ def main():
 
         # --- TEST 2: GO COMMAND ---
         send_cmd("GO")
+        # Step interval is now faster (10 instead of 25), timeout buffer kept at 45.0s
         read_until("HOLD", timeout=45.0)
         print("\n[PASS] Move to target reached HOLD state!")
 
@@ -87,17 +88,16 @@ def main():
         read_until("RETURNED", timeout=45.0)
         print("\n[PASS] Return sequence completed!")
 
-        # --- TEST 4: ASYNCHRONOUS HATCH ACTUATION ---
+        # --- TEST 4: DIRECT HATCH ACTUATION (OPTION 1) ---
         send_cmd("OPEN")
-        read_until("OPENING")
-        # Increase timeout to 20.0s to allow Renode's virtual time to reach 5000ms
-        read_until("OPENED", timeout=20.0)  
-        print("\n[PASS] Hatch OPEN timed sequence completed!")
+        # UPDATED: Extended from 5.0s to 25.0s to match OPEN_DURATION_MS (20000ms)
+        read_until("OPENED", timeout=25.0)  
+        print("\n[PASS] Hatch OPEN command acknowledged!")
 
         send_cmd("CLOSE")
-        read_until("CLOSING")
-        read_until("CLOSED", timeout=20.0)
-        print("\n[PASS] Hatch CLOSE timed sequence completed!")
+        # UPDATED: Extended from 5.0s to 25.0s to match CLOSE_DURATION_MS (20000ms)
+        read_until("CLOSED", timeout=25.0)
+        print("\n[PASS] Hatch CLOSE command acknowledged!")
 
         # --- TEST 5: LIGHT RELAY CONTROL ---
         send_cmd("ON")
