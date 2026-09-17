@@ -790,14 +790,14 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, Z1_STEP_Pin|Z1_DIR_Pin|Z1_EN_Pin|GRIP_IN1_Pin
                           |GRIP_IN2_Pin|GRIP_IN3_Pin|GRIP_IN4_Pin|Z2_STEP_Pin
-                          |Z2_DIR_Pin|Z2_EN_Pin|RELAY_Pin, GPIO_PIN_RESET);
+                          |Z2_DIR_Pin|Z2_EN_Pin|RELAY_LIGHT_Pin|RELAY_FAN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : Z1_STEP_Pin Z1_DIR_Pin Z1_EN_Pin GRIP_IN1_Pin
                            GRIP_IN2_Pin GRIP_IN3_Pin GRIP_IN4_Pin Z2_STEP_Pin
-                           Z2_DIR_Pin Z2_EN_Pin RELAY_Pin */
+                           Z2_DIR_Pin Z2_EN_Pin RELAY_LIGHT_Pin RELAY_FAN_Pin */
   GPIO_InitStruct.Pin = Z1_STEP_Pin|Z1_DIR_Pin|Z1_EN_Pin|GRIP_IN1_Pin
                           |GRIP_IN2_Pin|GRIP_IN3_Pin|GRIP_IN4_Pin|Z2_STEP_Pin
-                          |Z2_DIR_Pin|Z2_EN_Pin|RELAY_Pin;
+                          |Z2_DIR_Pin|Z2_EN_Pin|RELAY_LIGHT_Pin|RELAY_FAN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
