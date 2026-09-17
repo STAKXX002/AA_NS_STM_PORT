@@ -625,11 +625,14 @@ int main(void)
         }
         else if (strcmp((const char*)rx_buffer, "ON") == 0) {
             light_on();
-            printf("LIGHT ON\r\n");
+            fan_on();
+            printf("LIGHT & FAN ON\r\n");
         }
         else if (strcmp((const char*)rx_buffer, "OFF") == 0) {
             light_off();
-            printf("LIGHT OFF\r\n");
+            fanPendingOff = true;
+            fanOffStartTime = now;
+            printf("LIGHT OFF, FAN TIMER STARTED\r\n");
         }
     }
   }
