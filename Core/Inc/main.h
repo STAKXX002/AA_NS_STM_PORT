@@ -81,8 +81,8 @@ void Error_Handler(void);
 #define Z2_DIR_GPIO_Port GPIOB
 #define Z2_EN_Pin GPIO_PIN_6
 #define Z2_EN_GPIO_Port GPIOB
-#define RELAY_Pin GPIO_PIN_7
-#define RELAY_GPIO_Port GPIOB
+#define RELAY_LIGHT_Pin GPIO_PIN_7
+#define RELAY_LIGHT_GPIO_Port GPIOB
 #define Z2_LIMIT_Pin GPIO_PIN_8
 #define Z2_LIMIT_GPIO_Port GPIOB
 
