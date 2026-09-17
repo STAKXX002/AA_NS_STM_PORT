@@ -415,6 +415,11 @@ int main(void)
     /* USER CODE BEGIN 3 */
     uint32_t now = HAL_GetTick();
 
+    if (fanPendingOff && (now - fanOffStartTime >= FAN_DELAY_MS)) {
+        fan_off();
+        printf("FAN OFF\r\n");
+    }
+
     if (state == CALIBRATING) {
         if (now - stateStart > CAL_TIMEOUT) {
             fault("CAL TIMEOUT");
