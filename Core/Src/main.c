@@ -463,8 +463,10 @@ int main(void)
         if (now - stateStart > CAL_TIMEOUT) {
             fault("CAL BACKOFF TIMEOUT");
         } else if (axes_done()) {
+            // Reset position to 0 HERE, at the backed-off rest position
             reset_axis_zero();
             clearHits();
+            calibrated = true;
             state = IDLE;
             printf("CAL OK\r\n");
         }
