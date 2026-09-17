@@ -73,6 +73,7 @@ UART_HandleTypeDef huart2;
 #define HATCH_REFRESH_MS   300UL   // re-assert drive signal this often during a stroke
 #define FAN_DELAY_MS 60000UL // 1 minute fan run-time post light-off
 
+#define CAL_BACKOFF_STEPS  200UL   // Increased from smaller value to clear PB8/PB10
 
 typedef enum {
     IDLE, CALIBRATING, CAL_STOPPING, CAL_BACKOFF,
