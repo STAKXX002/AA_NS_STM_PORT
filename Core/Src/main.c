@@ -71,6 +71,8 @@ UART_HandleTypeDef huart2;
 #define CLOSE_DURATION_MS  20000UL // Increased from 5000UL to allow full stroke
 
 #define HATCH_REFRESH_MS   300UL   // re-assert drive signal this often during a stroke
+#define FAN_DELAY_MS 60000UL // 1 minute fan run-time post light-off
+
 
 typedef enum {
     IDLE, CALIBRATING, CAL_STOPPING, CAL_BACKOFF,
