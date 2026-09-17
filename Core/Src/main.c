@@ -128,14 +128,6 @@ void fan_off(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void light_on(void) {
-    HAL_GPIO_WritePin(RELAY_GPIO_Port, RELAY_Pin, GPIO_PIN_SET);
-}
-
-void light_off(void) {
-    HAL_GPIO_WritePin(RELAY_GPIO_Port, RELAY_Pin, GPIO_PIN_RESET);
-}
-
 void reset_axis_zero(void) {
     __disable_irq(); // ADDED: Atomic guard
     z1.current_pos = 0; z1.target_pos = 0; z1.step_accumulator = 0;
@@ -259,7 +251,6 @@ void startCal(void) {
     printf("CAL\r\n");
 }
 
-// Safer function to retrieve current axis position without ISR race conditions
 long get_axis_position(volatile StepperAxis* axis) {
     __disable_irq();
     long pos = axis->current_pos;
