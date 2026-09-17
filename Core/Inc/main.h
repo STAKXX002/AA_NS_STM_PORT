@@ -85,6 +85,8 @@ void Error_Handler(void);
 #define RELAY_LIGHT_GPIO_Port GPIOB
 #define Z2_LIMIT_Pin GPIO_PIN_8
 #define Z2_LIMIT_GPIO_Port GPIOB
+#define RELAY_FAN_Pin GPIO_PIN_9
+#define RELAY_FAN_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
