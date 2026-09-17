@@ -101,7 +101,11 @@ bool calibrated = false;
 bool z1Hit = false, z2Hit = false;
 long z1HitPos = 0, z2HitPos = 0;
 uint32_t stateStart = 0;
+
 uint32_t hatchLastRefresh = 0;
+
+bool fanPendingOff = false;
+uint32_t fanOffStartTime = 0;
 
 volatile char rx_buffer[32];
 uint8_t rx_char;
