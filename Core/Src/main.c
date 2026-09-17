@@ -267,6 +267,24 @@ long get_axis_position(volatile StepperAxis* axis) {
     return pos;
 }
 
+void light_on(void) {
+    HAL_GPIO_WritePin(RELAY_LIGHT_GPIO_Port, RELAY_LIGHT_Pin, GPIO_PIN_RESET); // Active-LOW
+}
+
+void light_off(void) {
+    HAL_GPIO_WritePin(RELAY_LIGHT_GPIO_Port, RELAY_LIGHT_Pin, GPIO_PIN_SET);   // Active-LOW
+}
+
+void fan_on(void) {
+    HAL_GPIO_WritePin(RELAY_FAN_GPIO_Port, RELAY_FAN_Pin, GPIO_PIN_RESET);     // Active-LOW
+    fanPendingOff = false;
+}
+
+void fan_off(void) {
+    HAL_GPIO_WritePin(RELAY_FAN_GPIO_Port, RELAY_FAN_Pin, GPIO_PIN_SET);       // Active-LOW
+    fanPendingOff = false;
+}
+
 // Optimized ISR without NOP blocking loops
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     if (htim->Instance == TIM3) {
