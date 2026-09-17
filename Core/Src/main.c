@@ -74,6 +74,7 @@ UART_HandleTypeDef huart2;
 #define FAN_DELAY_MS 60000UL // 1 minute fan run-time post light-off
 
 #define CAL_BACKOFF_STEPS  200UL   // Increased from smaller value to clear PB8/PB10
+#define TARGET_ORIGIN_POS  0L
 
 typedef enum {
     IDLE, CALIBRATING, CAL_STOPPING, CAL_BACKOFF,
