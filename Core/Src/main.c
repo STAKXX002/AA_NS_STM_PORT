@@ -601,7 +601,7 @@ int main(void)
             printf("RST\r\nNO CAL\r\n");
         } 
         else if (strcmp((const char*)rx_buffer, "OPEN") == 0) {
-            if (state == IDLE) {
+            if (state == IDLE || state == RETURNED) {
                 hatch_forward();
                 stateStart = now;
                 hatchLastRefresh = now;
@@ -610,7 +610,7 @@ int main(void)
             } else printf("BUSY\r\n");
         }
         else if (strcmp((const char*)rx_buffer, "CLOSE") == 0) {
-            if (state == IDLE) {
+            if (state == IDLE || state == RETURNED) {
                 hatch_reverse();
                 stateStart = now;
                 hatchLastRefresh = now;
