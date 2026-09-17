@@ -444,17 +444,18 @@ int main(void)
         }
     }
     else if (state == CAL_STOPPING) {
-        if (now - stateStart > CAL_TIMEOUT) { // ADDED: Timeout check
+        if (now - stateStart > CAL_TIMEOUT) {
             fault("CAL STOP TIMEOUT");
         } else if (axes_done()) {
             if (!skewOK()) {
                 fault("CAL SKEW");
             } else {
                 printf("ZERO\r\n");
-                calibrated = true; 
+                // Command backoff relative to physical hit position BEFORE resetting 0
                 axis_move_to(&z1, z1.current_pos + (BACKOFF_DIR * RECOVERY_STEPS));
                 axis_move_to(&z2, z2.current_pos + (BACKOFF_DIR * RECOVERY_STEPS));
-                state = CAL_BACKOFF; stateStart = now;
+                state = CAL_BACKOFF; 
+                stateStart = now;
             }
         }
     }
