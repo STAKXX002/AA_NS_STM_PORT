@@ -1,18 +1,22 @@
 mach create "stm32f446"
 machine LoadPlatformDescription @platforms/cpus/stm32f4.repl
 
-# Set quantum execution step to maintain accurate virtual time performance
-emulation SetGlobalQuantum "0.0001"
+# Suppress non-critical USART peripheral warnings
+logLevel 3 sysbus.usart2
 
-# Point directly to your compiled Debug ELF
-sysbus LoadELF @build/Debug/AA_NS_STM_V1.elf
+# Increased quantum step size from 0.0001 to 0.001 to prevent host wall-clock timeout during motor stepping
+emulation SetGlobalQuantum "0.001"
+
+# Point directly to the Release build ELF
+sysbus LoadELF @build/Release/AA_NS_STM_V1.elf
 
 # Set active-low limit switches (PB8, PB10) HIGH on boot (unpressed state)
 sysbus.gpioPortB OnGPIO 8 true
 sysbus.gpioPortB OnGPIO 10 true
 
-# Set Relay Output (PB7) LOW on boot
-sysbus.gpioPortB OnGPIO 7 false
+# Set Relay Outputs (PB7 Light, PB9 Fan) HIGH on boot (Inactive state for active-LOW relays)
+sysbus.gpioPortB OnGPIO 7 true
+sysbus.gpioPortB OnGPIO 9 true
 
 # Setup socket server for UART2 communication with the Python script
 emulation CreateServerSocketTerminal 1234 "uart_terminal"
