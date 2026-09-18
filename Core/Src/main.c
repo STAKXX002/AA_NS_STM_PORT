@@ -22,9 +22,11 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
+#include "relay.h"
+#include "hatch.h"
+#include "alignment.h"
+#include "system.h"
+#include "commands.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,68 +52,9 @@ TIM_HandleTypeDef htim3;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-#define STEPS_PER_MM    200L
-#define GO_STEPS        (-20L * STEPS_PER_MM)
-#define RECOVERY_MM     5.0f
-#define RECOVERY_STEPS  ((long)(RECOVERY_MM * STEPS_PER_MM))
-#define MAX_SKEW_STEPS  (5L * STEPS_PER_MM) // 1000L steps = 5.0 mm
-#define CAL_TRAVEL      1000000L
-
-#define CAL_DIR         1
-#define BACKOFF_DIR    -1
-
-#define CAL_TIMEOUT       30000UL
-#define RECOVERY_TIMEOUT  15000UL
-#define MOVE_TIMEOUT      60000UL // CHANGE FROM 20000UL TO 60000UL
-
-#define STEP_INTERVAL_START   60L    // slow start: 10kHz/60 ≈ 167 Hz
-#define RAMP_TICKS             5000L // ramp duration: 5000 * 100us = 500ms
-
-#define OPEN_DURATION_MS   20000UL // Increased from 5000UL to allow full stroke
-#define CLOSE_DURATION_MS  20000UL // Increased from 5000UL to allow full stroke
-
-#define HATCH_REFRESH_MS   300UL   // re-assert drive signal this often during a stroke
-#define FAN_DELAY_MS 60000UL // 1 minute fan run-time post light-off
-
-#define CAL_BACKOFF_STEPS  200UL   // Increased from smaller value to clear PB8/PB10
-#define TARGET_ORIGIN_POS  0L
-
-typedef enum {
-    IDLE, CALIBRATING, CAL_STOPPING, CAL_BACKOFF,
-    GOING, HOLD, RETURNING, RETURNED,
-    RECOVERY, REC_STOPPING, REC_BACKOFF, FAULT,
-    OPENING, CLOSING
-} SystemState;
-
-typedef struct {
-    long current_pos;
-    long target_pos;
-    long step_accumulator;
-    long step_interval;         // keep this — now used as the CRUISE (minimum) interval
-    long step_interval_current; // current ramp position
-    uint32_t move_start_tick;   // isrTicks value when this move began
-    GPIO_TypeDef* step_port; uint16_t step_pin;
-    GPIO_TypeDef* dir_port;  uint16_t dir_pin;
-} StepperAxis;
-
-volatile StepperAxis z1, z2;
-volatile SystemState state = IDLE;
-
-bool calibrated = false;
-bool z1Hit = false, z2Hit = false;
-long z1HitPos = 0, z2HitPos = 0;
-uint32_t stateStart = 0;
-
-uint32_t hatchLastRefresh = 0;
-
-bool fanPendingOff = false;
-uint32_t fanOffStartTime = 0;
-
-volatile char rx_buffer[32];
-uint8_t rx_char;
-uint8_t rx_idx = 0;
-volatile bool cmd_ready = false;
-volatile uint32_t isrTicks = 0;   // free-running, incremented every ISR call (100us per tick)
+/* All state (steppers, hatch, relays, UART command buffer) now lives
+ * inside its own module - see relay.c, hatch.c, alignment.c, commands.c.
+ * main.c no longer holds any of the system's runtime state itself. */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -120,226 +63,20 @@ static void MX_GPIO_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
-void light_on(void);
-void light_off(void);
-void fan_on(void);
-void fan_off(void);
+/* (nothing needed here - relay.h/hatch.h/alignment.h/commands.h already
+ * declare everything main.c calls) */
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void reset_axis_zero(void) {
-    __disable_irq(); // ADDED: Atomic guard
-    z1.current_pos = 0; z1.target_pos = 0; z1.step_accumulator = 0;
-    z2.current_pos = 0; z2.target_pos = 0; z2.step_accumulator = 0;
-    __enable_irq();  // ADDED: Atomic guard
-}
-
+/* Everything that used to live here (stepper helpers, hatch GPIO,
+ * relay GPIO, fault(), the TIM3 ISR, the UART RX callback) now lives in
+ * its owning module. This file keeps only the printf-to-UART retarget,
+ * since that's generic C-runtime glue, not domain logic. */
 int _write(int file, char *ptr, int len) {
+    (void)file;
     HAL_UART_Transmit(&huart2, (uint8_t*)ptr, len, 100);
     return len;
-}
-
-bool limit_pressed(GPIO_TypeDef* port, uint16_t pin) {
-    return HAL_GPIO_ReadPin(port, pin) == GPIO_PIN_RESET;
-}
-
-void enable_motors(void) {
-    HAL_GPIO_WritePin(Z1_EN_GPIO_Port, Z1_EN_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(Z2_EN_GPIO_Port, Z2_EN_Pin, GPIO_PIN_RESET);
-}
-
-void disable_motors(void) {
-    HAL_GPIO_WritePin(Z1_EN_GPIO_Port, Z1_EN_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(Z2_EN_GPIO_Port, Z2_EN_Pin, GPIO_PIN_SET);
-}
-
-void hatch_forward(void) {
-    // Enable H-bridge to push actuator out to full 100mm extension
-    HAL_GPIO_WritePin(GRIP_IN1_GPIO_Port, GRIP_IN1_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(GRIP_IN2_GPIO_Port, GRIP_IN2_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GRIP_IN3_GPIO_Port, GRIP_IN3_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(GRIP_IN4_GPIO_Port, GRIP_IN4_Pin, GPIO_PIN_RESET);
-}
-
-void hatch_reverse(void) {
-    // Enable H-bridge in reverse polarity to fully retract actuator
-    HAL_GPIO_WritePin(GRIP_IN1_GPIO_Port, GRIP_IN1_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GRIP_IN2_GPIO_Port, GRIP_IN2_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(GRIP_IN3_GPIO_Port, GRIP_IN3_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GRIP_IN4_GPIO_Port, GRIP_IN4_Pin, GPIO_PIN_SET);
-}
-
-void hatch_stop(void) {
-    // Cut H-bridge output completely
-    HAL_GPIO_WritePin(GRIP_IN1_GPIO_Port, GRIP_IN1_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GRIP_IN2_GPIO_Port, GRIP_IN2_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GRIP_IN3_GPIO_Port, GRIP_IN3_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GRIP_IN4_GPIO_Port, GRIP_IN4_Pin, GPIO_PIN_RESET);
-}
-
-void axis_move_to(volatile StepperAxis* axis, long target) {
-    __disable_irq(); // ADDED: Atomic guard
-    axis->target_pos = target;
-    axis->move_start_tick = isrTicks;
-    axis->step_interval_current = STEP_INTERVAL_START;
-    axis->step_accumulator = 0;
-    if (target > axis->current_pos) {
-        HAL_GPIO_WritePin(axis->dir_port, axis->dir_pin, GPIO_PIN_SET);
-    } else if (target < axis->current_pos) {
-        HAL_GPIO_WritePin(axis->dir_port, axis->dir_pin, GPIO_PIN_RESET);
-    }
-    __enable_irq();  // ADDED: Atomic guard
-}
-
-void axis_stop(volatile StepperAxis* axis) {
-    __HAL_TIM_DISABLE_IT(&htim3, TIM_IT_UPDATE);
-    axis->target_pos = axis->current_pos;
-    __HAL_TIM_ENABLE_IT(&htim3, TIM_IT_UPDATE);
-}
-
-bool axes_done(void) {
-    __disable_irq(); // ADDED: Atomic guard
-    bool done = (z1.current_pos == z1.target_pos) && (z2.current_pos == z2.target_pos);
-    __enable_irq();  // ADDED: Atomic guard
-    return done;
-}
-
-void clearHits(void) {
-    z1Hit = false; z2Hit = false;
-    z1HitPos = 0; z2HitPos = 0;
-}
-
-bool skewOK(void) {
-    long diff = labs(z1HitPos - z2HitPos);
-    
-    int32_t whole = (int32_t)(diff / STEPS_PER_MM);
-    int32_t frac  = (int32_t)(((float)diff / STEPS_PER_MM - (float)whole) * 1000.0f);
-    if (frac < 0) frac = -frac;
-
-    printf("SKEW: %ld.%03ld mm\r\n", whole, frac);
-    return diff <= MAX_SKEW_STEPS;
-}
-
-void fault(const char *msg) {
-    axis_stop(&z1);
-    axis_stop(&z2);
-    disable_motors();
-    hatch_stop(); 
-    light_off(); // Turn off relay on fault
-    calibrated = false;
-    state = FAULT;
-    printf("FAULT: %s\r\n", msg);
-}
-
-void startCal(void) {
-    if (limit_pressed(Z1_LIMIT_GPIO_Port, Z1_LIMIT_Pin) || 
-        limit_pressed(Z2_LIMIT_GPIO_Port, Z2_LIMIT_Pin)) {
-        fault("LIMIT ACTIVE");
-        return;
-    }
-    enable_motors();
-    clearHits();
-    calibrated = false;
-
-    reset_axis_zero();
-    axis_move_to(&z1, CAL_DIR * CAL_TRAVEL);
-    axis_move_to(&z2, CAL_DIR * CAL_TRAVEL);
-
-    stateStart = HAL_GetTick();
-    state = CALIBRATING;
-    printf("CAL\r\n");
-}
-
-long get_axis_position(volatile StepperAxis* axis) {
-    __disable_irq();
-    long pos = axis->current_pos;
-    __enable_irq();
-    return pos;
-}
-
-void light_on(void) {
-    HAL_GPIO_WritePin(RELAY_LIGHT_GPIO_Port, RELAY_LIGHT_Pin, GPIO_PIN_RESET); // Active-LOW
-}
-
-void light_off(void) {
-    HAL_GPIO_WritePin(RELAY_LIGHT_GPIO_Port, RELAY_LIGHT_Pin, GPIO_PIN_SET);   // Active-LOW
-}
-
-void fan_on(void) {
-    HAL_GPIO_WritePin(RELAY_FAN_GPIO_Port, RELAY_FAN_Pin, GPIO_PIN_RESET);     // Active-LOW
-    fanPendingOff = false;
-}
-
-void fan_off(void) {
-    HAL_GPIO_WritePin(RELAY_FAN_GPIO_Port, RELAY_FAN_Pin, GPIO_PIN_SET);       // Active-LOW
-    fanPendingOff = false;
-}
-
-// Optimized ISR without NOP blocking loops
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-    if (htim->Instance == TIM3) {
-        isrTicks++;
-
-        // Fast Ramp update Z1
-        uint32_t elapsed1 = isrTicks - z1.move_start_tick;
-        if (elapsed1 >= (uint32_t)RAMP_TICKS) {
-            z1.step_interval_current = z1.step_interval;
-        } else {
-            long delta = STEP_INTERVAL_START - z1.step_interval;
-            z1.step_interval_current = STEP_INTERVAL_START - ((delta * (long)elapsed1) / RAMP_TICKS);
-        }
-
-        // Fast Ramp update Z2
-        uint32_t elapsed2 = isrTicks - z2.move_start_tick;
-        if (elapsed2 >= (uint32_t)RAMP_TICKS) {
-            z2.step_interval_current = z2.step_interval;
-        } else {
-            long delta = STEP_INTERVAL_START - z2.step_interval;
-            z2.step_interval_current = STEP_INTERVAL_START - ((delta * (long)elapsed2) / RAMP_TICKS);
-        }
-
-        // Z1 Step Execution
-        if (z1.current_pos != z1.target_pos) {
-            z1.step_accumulator++;
-            if (z1.step_accumulator >= z1.step_interval_current) {
-                z1.step_accumulator = 0;
-                HAL_GPIO_WritePin(z1.step_port, z1.step_pin, GPIO_PIN_SET);
-                z1.current_pos += (z1.target_pos > z1.current_pos) ? 1 : -1;
-                HAL_GPIO_WritePin(z1.step_port, z1.step_pin, GPIO_PIN_RESET);
-            }
-        }
-
-        // Z2 Step Execution
-        if (z2.current_pos != z2.target_pos) {
-            z2.step_accumulator++;
-            if (z2.step_accumulator >= z2.step_interval_current) {
-                z2.step_accumulator = 0;
-                HAL_GPIO_WritePin(z2.step_port, z2.step_pin, GPIO_PIN_SET);
-                z2.current_pos += (z2.target_pos > z2.current_pos) ? 1 : -1;
-                HAL_GPIO_WritePin(z2.step_port, z2.step_pin, GPIO_PIN_RESET);
-            }
-        }
-    }
-}
-
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-    if (huart->Instance == USART2) {
-        if (rx_char == '\r') {
-            // Ignore carriage return so \r\n acts as a single line terminator
-        } else if (rx_char == '\n') {
-            if (rx_idx > 0 && !cmd_ready) {
-                rx_buffer[rx_idx] = '\0';
-                cmd_ready = true;
-                rx_idx = 0;
-            }
-        } else {
-            if (rx_idx < sizeof(rx_buffer) - 1 && !cmd_ready) {
-                rx_buffer[rx_idx++] = rx_char;
-            }
-        }
-        HAL_UART_Receive_IT(&huart2, &rx_char, 1);
-    }
 }
 /* USER CODE END 0 */
 
@@ -375,17 +112,9 @@ int main(void)
   MX_TIM3_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  z1.step_port = Z1_STEP_GPIO_Port; z1.step_pin = Z1_STEP_Pin;
-  z1.dir_port  = Z1_DIR_GPIO_Port;  z1.dir_pin  = Z1_DIR_Pin;
-  z1.step_interval = 10; // CHANGE FROM 25 TO 10
-
-  z2.step_port = Z2_STEP_GPIO_Port; z2.step_pin = Z2_STEP_Pin;
-  z2.dir_port  = Z2_DIR_GPIO_Port;  z2.dir_pin  = Z2_DIR_Pin;
-  z2.step_interval = 10; // CHANGE FROM 25 TO 10
-
-  enable_motors();
+  alignment_init(&htim3);
+  commands_init(&huart2);
   HAL_TIM_Base_Start_IT(&htim3);
-  HAL_UART_Receive_IT(&huart2, &rx_char, 1);
 
   printf("READY\r\nCAL REQUIRED\r\n");
   /* USER CODE END 2 */
@@ -406,226 +135,10 @@ int main(void)
     /* USER CODE BEGIN 3 */
     uint32_t now = HAL_GetTick();
 
-    if (fanPendingOff && (now - fanOffStartTime >= FAN_DELAY_MS)) {
-        fan_off();
-        printf("FAN OFF\r\n");
-    }
-
-    if (state == CALIBRATING) {
-        if (now - stateStart > CAL_TIMEOUT) {
-            fault("CAL TIMEOUT");
-        } else {
-            if (limit_pressed(Z1_LIMIT_GPIO_Port, Z1_LIMIT_Pin) && !z1Hit) {
-                z1Hit = true; z1HitPos = z1.current_pos;
-                axis_stop(&z1);
-                printf("Z1 HIT\r\n");
-            }
-            if (limit_pressed(Z2_LIMIT_GPIO_Port, Z2_LIMIT_Pin) && !z2Hit) {
-                z2Hit = true; z2HitPos = z2.current_pos;
-                axis_stop(&z2);
-                printf("Z2 HIT\r\n");
-            }
-            if (z1Hit && z2Hit) {
-                state = CAL_STOPPING; stateStart = now;
-            } else if (z1Hit && !z2Hit && (z2.current_pos == z2.target_pos)) {
-                fault("Z2 LIMIT NOT FOUND");
-            } else if (z2Hit && !z1Hit && (z1.current_pos == z1.target_pos)) {
-                fault("Z1 LIMIT NOT FOUND");
-            }
-        }
-    }
-    else if (state == CAL_STOPPING) {
-        if (now - stateStart > CAL_TIMEOUT) {
-            fault("CAL STOP TIMEOUT");
-        } else if (axes_done()) {
-            if (!skewOK()) {
-                fault("CAL SKEW");
-            } else {
-                printf("ZERO\r\n");
-                // Command backoff relative to physical hit position BEFORE resetting 0
-                axis_move_to(&z1, z1.current_pos + (BACKOFF_DIR * RECOVERY_STEPS));
-                axis_move_to(&z2, z2.current_pos + (BACKOFF_DIR * RECOVERY_STEPS));
-                state = CAL_BACKOFF; 
-                stateStart = now;
-            }
-        }
-    }
-    else if (state == CAL_BACKOFF) {
-        if (now - stateStart > CAL_TIMEOUT) {
-            fault("CAL BACKOFF TIMEOUT");
-        } else if (axes_done()) {
-            // Reset position to 0 HERE, at the backed-off rest position
-            reset_axis_zero();
-            clearHits();
-            calibrated = true;
-            state = IDLE;
-            printf("CAL OK\r\n");
-        }
-    }
-    else if (state == GOING) {
-        if (now - stateStart > MOVE_TIMEOUT) {
-            fault("GO TIMEOUT");
-        } else if (axes_done()) {
-            state = HOLD;
-            printf("HOLD\r\n");
-        }
-    }
-    else if (state == RETURNING) {
-        bool enteringRecovery = false;
-        if (!z1Hit && limit_pressed(Z1_LIMIT_GPIO_Port, Z1_LIMIT_Pin)) {
-            z1Hit = true; z1HitPos = z1.current_pos;
-            axis_stop(&z1);
-            printf("Z1 HIT\r\n");
-            enteringRecovery = true;
-        }
-        if (!z2Hit && limit_pressed(Z2_LIMIT_GPIO_Port, Z2_LIMIT_Pin)) {
-            z2Hit = true; z2HitPos = z2.current_pos;
-            axis_stop(&z2);
-            printf("Z2 HIT\r\n");
-            enteringRecovery = true;
-        }
-        if (enteringRecovery) {
-            if (!z1Hit) axis_move_to(&z1, CAL_DIR * CAL_TRAVEL);
-            if (!z2Hit) axis_move_to(&z2, CAL_DIR * CAL_TRAVEL);
-            state = RECOVERY; stateStart = now;
-        } else if (axes_done()) {
-            state = RETURNED;
-            printf("RETURNED\r\n");
-        } else if (now - stateStart > MOVE_TIMEOUT) {
-            fault("RETURN TIMEOUT");
-        }
-    }
-    else if (state == RECOVERY) {
-        if (now - stateStart > RECOVERY_TIMEOUT) {
-            fault("REC TIMEOUT");
-        } else {
-            if (!z1Hit && limit_pressed(Z1_LIMIT_GPIO_Port, Z1_LIMIT_Pin)) {
-                z1Hit = true; z1HitPos = z1.current_pos;
-                axis_stop(&z1);
-                printf("Z1 HIT\r\n");
-            }
-            if (!z2Hit && limit_pressed(Z2_LIMIT_GPIO_Port, Z2_LIMIT_Pin)) {
-                z2Hit = true; z2HitPos = z2.current_pos;
-                axis_stop(&z2);
-                printf("Z2 HIT\r\n");
-            }
-            if (z1Hit && z2Hit) {
-                state = REC_STOPPING; stateStart = now;
-            } else if (z1Hit && !z2Hit && (z2.current_pos == z2.target_pos)) {
-                fault("Z2 LIMIT NOT FOUND");
-            } else if (z2Hit && !z1Hit && (z1.current_pos == z1.target_pos)) {
-                fault("Z1 LIMIT NOT FOUND");
-            }
-        }
-    }
-    else if (state == REC_STOPPING) {
-        if (now - stateStart > RECOVERY_TIMEOUT) { // ADDED: Timeout check
-            fault("REC STOP TIMEOUT");
-        } else if (axes_done()) {
-            if (!skewOK()) {
-                fault("REC SKEW");
-            } else {
-                axis_move_to(&z1, z1.current_pos + (BACKOFF_DIR * RECOVERY_STEPS));
-                axis_move_to(&z2, z2.current_pos + (BACKOFF_DIR * RECOVERY_STEPS));
-                state = REC_BACKOFF; stateStart = now;
-            }
-        }
-    }
-    else if (state == REC_BACKOFF) {
-        if (now - stateStart > RECOVERY_TIMEOUT) {
-            fault("REC BACKOFF TIMEOUT");
-        } else if (axes_done()) {
-            reset_axis_zero();
-            clearHits();
-            calibrated = true; state = RETURNED;
-            printf("REC OK\r\nZERO\r\nRETURNED\r\n");
-        }
-    }else if (state == OPENING) {
-        if (now - stateStart > OPEN_DURATION_MS) {
-            hatch_stop();
-            state = IDLE;
-            printf("OPENED\r\n");
-        } else if (now - hatchLastRefresh > HATCH_REFRESH_MS) {
-            hatch_forward();          // re-assert in case the driver dropped it
-            hatchLastRefresh = now;
-        }
-    }
-    else if (state == CLOSING) {
-        if (now - stateStart > CLOSE_DURATION_MS) {
-            hatch_stop();
-            state = IDLE;
-            printf("CLOSED\r\n");
-        } else if (now - hatchLastRefresh > HATCH_REFRESH_MS) {
-            hatch_reverse();
-            hatchLastRefresh = now;
-        }
-    }
-
-    if (cmd_ready) {
-        cmd_ready = false;
-        if (strcmp((const char*)rx_buffer, "CAL") == 0) {
-            if (state == IDLE) startCal();
-            else printf("BUSY\r\n");
-        } 
-        else if (strcmp((const char*)rx_buffer, "GO") == 0) {
-            if (!calibrated) printf("NO CAL\r\n");
-            else if (state == IDLE || state == RETURNED) {
-                clearHits(); enable_motors();
-                axis_move_to(&z1, GO_STEPS); axis_move_to(&z2, GO_STEPS);
-                state = GOING; stateStart = now;
-                printf("GO\r\n");
-            } else printf("BUSY\r\n");
-        } 
-        else if (strcmp((const char*)rx_buffer, "RET") == 0) {
-            if (!calibrated) printf("NO CAL\r\n");
-            else if (state == HOLD) {
-                clearHits();
-                axis_move_to(&z1, 0); axis_move_to(&z2, 0);
-                state = RETURNING; stateStart = now;
-                printf("RET\r\n");
-            } else printf("INVALID\r\n");
-        } 
-        else if (strcmp((const char*)rx_buffer, "RST") == 0) {
-            axis_stop(&z1); axis_stop(&z2); enable_motors();
-            reset_axis_zero();
-            clearHits(); calibrated = false; state = IDLE;
-            printf("RST\r\nNO CAL\r\n");
-        } 
-        else if (strcmp((const char*)rx_buffer, "OPEN") == 0) {
-            if (state == IDLE || state == RETURNED) {
-                hatch_forward();
-                stateStart = now;
-                hatchLastRefresh = now;
-                state = OPENING;
-                printf("OPENING\r\n");
-            } else printf("BUSY\r\n");
-        }
-        else if (strcmp((const char*)rx_buffer, "CLOSE") == 0) {
-            if (state == IDLE || state == RETURNED) {
-                hatch_reverse();
-                stateStart = now;
-                hatchLastRefresh = now;
-                state = CLOSING;
-                printf("CLOSING\r\n");
-            } else printf("BUSY\r\n");
-        }
-        else if (strcmp((const char*)rx_buffer, "STOP") == 0) {
-            hatch_stop();
-            state = IDLE;
-            printf("HATCH STOPPED\r\n");
-        }
-        else if (strcmp((const char*)rx_buffer, "ON") == 0) {
-            light_on();
-            fan_on();
-            printf("LIGHT & FAN ON\r\n");
-        }
-        else if (strcmp((const char*)rx_buffer, "OFF") == 0) {
-            light_off();
-            fanPendingOff = true;
-            fanOffStartTime = now;
-            printf("LIGHT OFF, FAN TIMER STARTED\r\n");
-        }
-    }
+    relay_update(now);
+    hatch_update(now);
+    alignment_update(now);
+    commands_update(now);
   }
   /* USER CODE END 3 */
 }

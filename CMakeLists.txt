@@ -50,6 +50,11 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
+    Core/Src/relay.c
+    Core/Src/hatch.c
+    Core/Src/alignment.c
+    Core/Src/system.c
+    Core/Src/commands.c
 )
 
 # Add include paths
