@@ -8,6 +8,11 @@
 static bool     fanPendingOff   = false;
 static uint32_t fanOffStartTime = 0;
 
+void relay_init(void) {
+    light_off();
+    fan_off();
+}
+
 void light_on(void) {
     HAL_GPIO_WritePin(RELAY_LIGHT_GPIO_Port, RELAY_LIGHT_Pin, GPIO_PIN_RESET); /* Active-LOW */
 }

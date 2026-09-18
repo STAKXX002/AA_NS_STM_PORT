@@ -3,6 +3,11 @@
 
 #include <stdint.h>
 
+/* Call once at startup, after MX_GPIO_Init(). Forces light + fan off
+ * regardless of whatever level CubeMX's GPIO init left the pins at -
+ * don't rely on the .ioc's "GPIO output level" setting alone. */
+void relay_init(void);
+
 /* Immediate actions */
 void light_on(void);
 void light_off(void);

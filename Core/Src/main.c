@@ -112,6 +112,7 @@ int main(void)
   MX_TIM3_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
+  relay_init();      /* force light/fan off - don't trust CubeMX's GPIO init level */
   alignment_init(&htim3);
   commands_init(&huart2);
   HAL_TIM_Base_Start_IT(&htim3);
