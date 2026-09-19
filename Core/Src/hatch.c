@@ -5,12 +5,16 @@
 #define OPEN_DURATION_MS   20000UL /* full stroke */
 #define CLOSE_DURATION_MS  20000UL /* full stroke */
 #define HATCH_REFRESH_MS     300UL /* re-assert drive signal this often during a stroke */
+#define DEADTIME_MS           100UL /* break-before-make: H-bridge fully off this long
+                                      * before driving the opposite direction, to avoid
+                                      * shoot-through/back-EMF on direction reversal */
 
-typedef enum { HATCH_IDLE, HATCH_OPENING, HATCH_CLOSING } HatchState;
+typedef enum { HATCH_IDLE, HATCH_DEADTIME, HATCH_OPENING, HATCH_CLOSING } HatchState;
 
-static HatchState hatchState     = HATCH_IDLE;
-static uint32_t   stateStart     = 0;
-static uint32_t   lastRefresh    = 0;
+static HatchState hatchState      = HATCH_IDLE;
+static HatchState pendingState    = HATCH_IDLE; /* only meaningful during HATCH_DEADTIME */
+static uint32_t   stateStart      = 0;
+static uint32_t   lastRefresh     = 0;
 
 static void hatch_forward(void) {
     /* Enable H-bridge to push actuator out to full extension */
@@ -36,19 +40,25 @@ static void hatch_stop_gpio(void) {
     HAL_GPIO_WritePin(GRIP_IN4_GPIO_Port, GRIP_IN4_Pin, GPIO_PIN_RESET);
 }
 
+/* Both hatch_open() and hatch_close() always route through a stop +
+ * DEADTIME_MS window before actually driving the new direction, whether
+ * the hatch was previously idle, mid-stroke, or just stopped. This is
+ * what makes reversal safe without a blocking delay: hatch_update()
+ * does the waiting, not the caller. */
+static void hatch_start(uint32_t now, HatchState direction) {
+    hatch_stop_gpio();
+    pendingState = direction;
+    stateStart   = now;
+    hatchState   = HATCH_DEADTIME;
+}
+
 void hatch_open(uint32_t now) {
-    hatch_forward();
-    stateStart  = now;
-    lastRefresh = now;
-    hatchState  = HATCH_OPENING;
+    hatch_start(now, HATCH_OPENING);
     printf("OPENING\r\n");
 }
 
 void hatch_close(uint32_t now) {
-    hatch_reverse();
-    stateStart  = now;
-    lastRefresh = now;
-    hatchState  = HATCH_CLOSING;
+    hatch_start(now, HATCH_CLOSING);
     printf("CLOSING\r\n");
 }
 
@@ -69,6 +79,16 @@ bool hatch_is_busy(void) {
 
 void hatch_update(uint32_t now) {
     switch (hatchState) {
+    case HATCH_DEADTIME:
+        if (now - stateStart >= DEADTIME_MS) {
+            if (pendingState == HATCH_OPENING) hatch_forward();
+            else                               hatch_reverse();
+            stateStart  = now; /* stroke timeout counts from actual engagement */
+            lastRefresh = now;
+            hatchState  = pendingState;
+        }
+        break;
+
     case HATCH_OPENING:
         if (now - stateStart > OPEN_DURATION_MS) {
             hatch_stop_gpio();
