@@ -71,6 +71,38 @@ static bool limit_pressed(GPIO_TypeDef* port, uint16_t pin) {
     return HAL_GPIO_ReadPin(port, pin) == GPIO_PIN_RESET;
 }
 
+#define LIMIT_DEBOUNCE_MS 5UL /* mechanical microswitches bounce for ~1-10ms;
+                                * Renode's clean level toggles never exercise
+                                * this, so it only matters on real hardware */
+static bool     debouncing[2]      = { false, false };
+static uint32_t debounceStart[2]   = { 0, 0 };
+
+/* Returns true only once the given limit switch has read continuously
+ * pressed for LIMIT_DEBOUNCE_MS - use this (not limit_pressed() directly)
+ * anywhere a momentary bounce could cause a false hit latch. */
+static bool limit_hit_confirmed(int i, GPIO_TypeDef* port, uint16_t pin, uint32_t now) {
+    if (!limit_pressed(port, pin)) {
+        debouncing[i] = false;
+        return false;
+    }
+    if (!debouncing[i]) {
+        debouncing[i] = true;
+        debounceStart[i] = now;
+    }
+    return (now - debounceStart[i]) >= LIMIT_DEBOUNCE_MS;
+}
+
+/* Snapshot current_pos with interrupts disabled. A single aligned 32-bit
+ * read can't literally tear on Cortex-M, but this removes any doubt and
+ * guarantees the value used is from one exact instant rather than
+ * possibly a step boundary. */
+static long axis_position_snapshot(int i) {
+    __disable_irq();
+    long pos = axes[i].current_pos;
+    __enable_irq();
+    return pos;
+}
+
 static void reset_axis_zero(void) {
     __disable_irq();
     for (int i = 0; i < 2; i++) {
@@ -253,13 +285,13 @@ void alignment_update(uint32_t now) {
             system_fault("CAL TIMEOUT");
             break;
         }
-        if (limit_pressed(Z1_LIMIT_GPIO_Port, Z1_LIMIT_Pin) && !hit[AXIS_Z1]) {
-            hit[AXIS_Z1] = true; hitPos[AXIS_Z1] = axes[AXIS_Z1].current_pos;
+        if (limit_hit_confirmed(AXIS_Z1, Z1_LIMIT_GPIO_Port, Z1_LIMIT_Pin, now) && !hit[AXIS_Z1]) {
+            hit[AXIS_Z1] = true; hitPos[AXIS_Z1] = axis_position_snapshot(AXIS_Z1);
             axis_stop(AXIS_Z1);
             printf("Z1 HIT\r\n");
         }
-        if (limit_pressed(Z2_LIMIT_GPIO_Port, Z2_LIMIT_Pin) && !hit[AXIS_Z2]) {
-            hit[AXIS_Z2] = true; hitPos[AXIS_Z2] = axes[AXIS_Z2].current_pos;
+        if (limit_hit_confirmed(AXIS_Z2, Z2_LIMIT_GPIO_Port, Z2_LIMIT_Pin, now) && !hit[AXIS_Z2]) {
+            hit[AXIS_Z2] = true; hitPos[AXIS_Z2] = axis_position_snapshot(AXIS_Z2);
             axis_stop(AXIS_Z2);
             printf("Z2 HIT\r\n");
         }
@@ -280,8 +312,8 @@ void alignment_update(uint32_t now) {
                 system_fault("CAL SKEW");
             } else {
                 printf("ZERO\r\n");
-                axis_move_to(AXIS_Z1, axes[AXIS_Z1].current_pos + (BACKOFF_DIR * RECOVERY_STEPS));
-                axis_move_to(AXIS_Z2, axes[AXIS_Z2].current_pos + (BACKOFF_DIR * RECOVERY_STEPS));
+                axis_move_to(AXIS_Z1, axis_position_snapshot(AXIS_Z1) + (BACKOFF_DIR * RECOVERY_STEPS));
+                axis_move_to(AXIS_Z2, axis_position_snapshot(AXIS_Z2) + (BACKOFF_DIR * RECOVERY_STEPS));
                 state = CAL_BACKOFF;
                 stateStart = now;
             }
@@ -311,14 +343,14 @@ void alignment_update(uint32_t now) {
 
     case RETURNING: {
         bool enteringRecovery = false;
-        if (!hit[AXIS_Z1] && limit_pressed(Z1_LIMIT_GPIO_Port, Z1_LIMIT_Pin)) {
-            hit[AXIS_Z1] = true; hitPos[AXIS_Z1] = axes[AXIS_Z1].current_pos;
+        if (!hit[AXIS_Z1] && limit_hit_confirmed(AXIS_Z1, Z1_LIMIT_GPIO_Port, Z1_LIMIT_Pin, now)) {
+            hit[AXIS_Z1] = true; hitPos[AXIS_Z1] = axis_position_snapshot(AXIS_Z1);
             axis_stop(AXIS_Z1);
             printf("Z1 HIT\r\n");
             enteringRecovery = true;
         }
-        if (!hit[AXIS_Z2] && limit_pressed(Z2_LIMIT_GPIO_Port, Z2_LIMIT_Pin)) {
-            hit[AXIS_Z2] = true; hitPos[AXIS_Z2] = axes[AXIS_Z2].current_pos;
+        if (!hit[AXIS_Z2] && limit_hit_confirmed(AXIS_Z2, Z2_LIMIT_GPIO_Port, Z2_LIMIT_Pin, now)) {
+            hit[AXIS_Z2] = true; hitPos[AXIS_Z2] = axis_position_snapshot(AXIS_Z2);
             axis_stop(AXIS_Z2);
             printf("Z2 HIT\r\n");
             enteringRecovery = true;
@@ -341,13 +373,13 @@ void alignment_update(uint32_t now) {
             system_fault("REC TIMEOUT");
             break;
         }
-        if (!hit[AXIS_Z1] && limit_pressed(Z1_LIMIT_GPIO_Port, Z1_LIMIT_Pin)) {
-            hit[AXIS_Z1] = true; hitPos[AXIS_Z1] = axes[AXIS_Z1].current_pos;
+        if (!hit[AXIS_Z1] && limit_hit_confirmed(AXIS_Z1, Z1_LIMIT_GPIO_Port, Z1_LIMIT_Pin, now)) {
+            hit[AXIS_Z1] = true; hitPos[AXIS_Z1] = axis_position_snapshot(AXIS_Z1);
             axis_stop(AXIS_Z1);
             printf("Z1 HIT\r\n");
         }
-        if (!hit[AXIS_Z2] && limit_pressed(Z2_LIMIT_GPIO_Port, Z2_LIMIT_Pin)) {
-            hit[AXIS_Z2] = true; hitPos[AXIS_Z2] = axes[AXIS_Z2].current_pos;
+        if (!hit[AXIS_Z2] && limit_hit_confirmed(AXIS_Z2, Z2_LIMIT_GPIO_Port, Z2_LIMIT_Pin, now)) {
+            hit[AXIS_Z2] = true; hitPos[AXIS_Z2] = axis_position_snapshot(AXIS_Z2);
             axis_stop(AXIS_Z2);
             printf("Z2 HIT\r\n");
         }
@@ -367,8 +399,8 @@ void alignment_update(uint32_t now) {
             if (!skewOK()) {
                 system_fault("REC SKEW");
             } else {
-                axis_move_to(AXIS_Z1, axes[AXIS_Z1].current_pos + (BACKOFF_DIR * RECOVERY_STEPS));
-                axis_move_to(AXIS_Z2, axes[AXIS_Z2].current_pos + (BACKOFF_DIR * RECOVERY_STEPS));
+                axis_move_to(AXIS_Z1, axis_position_snapshot(AXIS_Z1) + (BACKOFF_DIR * RECOVERY_STEPS));
+                axis_move_to(AXIS_Z2, axis_position_snapshot(AXIS_Z2) + (BACKOFF_DIR * RECOVERY_STEPS));
                 state = REC_BACKOFF; stateStart = now;
             }
         }
