@@ -98,15 +98,40 @@ void commands_init(UART_HandleTypeDef *huart) {
 
 void commands_update(uint32_t now) {
     if (!cmd_ready) return;
+
+    /* Snapshot under a critical section before clearing cmd_ready - once
+     * cmd_ready goes false, the RX ISR is free to start overwriting
+     * rx_buffer for the next line, and without this copy that could
+     * happen mid-strcmp() against the buffer we're still reading. */
+    char local_buf[sizeof(rx_buffer)];
+    __disable_irq();
+    memcpy(local_buf, (const void*)rx_buffer, sizeof(local_buf));
     cmd_ready = false;
+    __enable_irq();
 
     for (unsigned i = 0; i < NUM_COMMANDS; i++) {
-        if (strcmp((const char*)rx_buffer, commandTable[i].name) == 0) {
+        if (strcmp(local_buf, commandTable[i].name) == 0) {
             commandTable[i].fn(now);
             return;
         }
     }
     printf("UNKNOWN\r\n");
+}
+
+/* HAL weak-callback override - without this, a real-world framing/noise/
+ * overrun error on the wire aborts HAL's UART receive state and the port
+ * goes permanently silent, since nothing re-arms HAL_UART_Receive_IT().
+ * Renode's virtual UART never raises these, so this only shows up on
+ * real wiring - easy to miss without deliberately looking for it. */
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
+    if (uart != NULL && huart->Instance == uart->Instance) {
+        __HAL_UART_CLEAR_OREFLAG(huart);
+        __HAL_UART_CLEAR_NEFLAG(huart);
+        __HAL_UART_CLEAR_FEFLAG(huart);
+        __HAL_UART_CLEAR_PEFLAG(huart);
+        rx_idx = 0; /* discard whatever partial line was in progress */
+        HAL_UART_Receive_IT(uart, &rx_char, 1);
+    }
 }
 
 /* HAL weak-callback override - this is the only file that touches the
