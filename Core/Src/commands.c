@@ -44,12 +44,14 @@ static void cmd_rst(uint32_t now) {
 }
 
 static void cmd_open(uint32_t now) {
-    if (alignment_is_idle() || alignment_is_returned()) hatch_open(now);
+    if (hatch_is_busy()) printf("BUSY\r\n");
+    else if (alignment_is_idle() || alignment_is_returned()) hatch_open(now);
     else printf("BUSY\r\n");
 }
 
 static void cmd_close(uint32_t now) {
-    if (alignment_is_idle() || alignment_is_returned()) hatch_close(now);
+    if (hatch_is_busy()) printf("BUSY\r\n");
+    else if (alignment_is_idle() || alignment_is_returned()) hatch_close(now);
     else printf("BUSY\r\n");
 }
 
