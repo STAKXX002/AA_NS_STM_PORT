@@ -23,3 +23,6 @@ __pycache__/
 
 # Simulation Logs
 *.log
+
+# StakHAL build traceability (generated)
+Core/Inc/stakhal_build_info.h
