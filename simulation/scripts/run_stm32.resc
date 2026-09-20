@@ -7,8 +7,12 @@ logLevel 3 sysbus.usart2
 # Increased quantum step size from 0.0001 to 0.001 to prevent host wall-clock timeout during motor stepping
 emulation SetGlobalQuantum "0.001"
 
-# Point directly to the Release build ELF
-sysbus LoadELF @build/Release/AA_NS_STM_V1.elf
+# Point at the Simulation build ELF (RENODE_BUILD=ON - skips the IWDG
+# watchdog, since Renode's IWDG timing runs closer to host wall-clock
+# than a real LSI oscillator and can trip it spuriously under this
+# quantum. Never point this at build/Release - that's what gets flashed,
+# and it always has the watchdog compiled in.)
+sysbus LoadELF @build/Simulation/AA_NS_STM_V1.elf
 
 # Set active-low limit switches (PB8, PB10) HIGH on boot (unpressed state)
 sysbus.gpioPortB OnGPIO 8 true
