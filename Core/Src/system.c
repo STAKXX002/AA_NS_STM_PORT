@@ -11,6 +11,9 @@ void system_fault(const char *msg) {
     alignment_emergency_stop();
     hatch_emergency_stop();
     light_off();
+    fan_off(); /* total fault means everything off, not just the light -
+                * a fault is not a state where anything should keep running
+                * unsupervised, including the fan */
     faulted = true;
     printf("FAULT: %s\r\n", msg);
 }

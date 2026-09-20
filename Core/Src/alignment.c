@@ -144,6 +144,10 @@ static bool axes_done(void) {
 static void clearHits(void) {
     hit[0] = hit[1] = false;
     hitPos[0] = hitPos[1] = 0;
+    debouncing[0] = debouncing[1] = false; /* keep all per-axis hit-latch
+        * state (hit, hitPos, and the debounce timers) resetting together,
+        * so nothing here can carry a stale in-progress debounce into the
+        * next calibration/return/recovery run */
 }
 
 static bool skewOK(void) {

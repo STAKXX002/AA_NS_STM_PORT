@@ -24,6 +24,16 @@ set(CMAKE_PROJECT_NAME AA_NS_STM_V1)
 # Enable compile command to ease indexing with e.g. clangd
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
+# Renode's IWDG timing runs closer to host wall-clock than a real LSI
+# oscillator, and this simulation already runs slower than real-time when
+# being precise about TIM3 stepper timing (see the quantum note in
+# run_stm32.resc) - so the watchdog can trip spuriously under Renode even
+# though the firmware never actually hung. This option exists ONLY to
+# build a separate binary for the Renode/CI harness; real hardware always
+# builds through the Release/Debug presets, which never define this, so
+# there is no way to accidentally flash a board without the watchdog.
+option(RENODE_BUILD "Simulation-only build: skip IWDG init/refresh (Renode's timing can trip it spuriously). NEVER use for a build you intend to flash." OFF)
+
 # Core project settings
 project(${CMAKE_PROJECT_NAME})
 message("Build type: " ${CMAKE_BUILD_TYPE})
@@ -55,6 +65,13 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/alignment.c
     Core/Src/system.c
     Core/Src/commands.c
+
+    # IWDG HAL driver - added here (not via CubeMX/.ioc) because IWDG
+    # isn't enabled as a peripheral in the .ioc yet. If you ever enable
+    # IWDG through the CubeMX GUI, it'll generate its own entry in
+    # cmake/stm32cubemx/CMakeLists.txt - remove the line below when that
+    # happens, so the file isn't compiled twice.
+    Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_iwdg.c
 )
 
 # Add include paths
@@ -65,6 +82,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add project symbols (macros)
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined symbols
+    $<$<BOOL:${RENODE_BUILD}>:RENODE_BUILD>
 )
 
 # Remove wrong libob.a library dependency when using cpp files

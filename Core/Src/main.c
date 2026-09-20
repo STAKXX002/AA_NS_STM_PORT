@@ -55,6 +55,7 @@ UART_HandleTypeDef huart2;
 /* All state (steppers, hatch, relays, UART command buffer) now lives
  * inside its own module - see relay.c, hatch.c, alignment.c, commands.c.
  * main.c no longer holds any of the system's runtime state itself. */
+static IWDG_HandleTypeDef hiwdg;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -112,6 +113,28 @@ int main(void)
   MX_TIM3_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
+#ifndef RENODE_BUILD
+  /* Independent watchdog: a separate internal timer that resets the
+   * whole chip if the main loop ever stops refreshing it (a hang,
+   * corrupted state, anything unanticipated) - a safety net of last
+   * resort for a board that drives real motors and an actuator.
+   * ~2s timeout (32kHz LSI / 64 prescaler, reload 999) - comfortably
+   * longer than one loop iteration even with a blocking printf(), short
+   * enough to recover quickly from a genuine hang. Once started this
+   * cannot be stopped in software until the next full reset - that's a
+   * hardware property of IWDG, not a bug.
+   * Skipped entirely under RENODE_BUILD: Renode's IWDG timing runs
+   * closer to host wall-clock than simulated LSI, and can trip this
+   * spuriously when the sim is running slower than real-time - never
+   * define RENODE_BUILD for a binary you intend to flash. */
+  hiwdg.Instance = IWDG;
+  hiwdg.Init.Prescaler = IWDG_PRESCALER_64;
+  hiwdg.Init.Reload = 999;
+  if (HAL_IWDG_Init(&hiwdg) != HAL_OK) {
+      Error_Handler();
+  }
+#endif
+
   relay_init();      /* force light/fan off - don't trust CubeMX's GPIO init level */
   alignment_init(&htim3);
   commands_init(&huart2);
@@ -140,6 +163,16 @@ int main(void)
     hatch_update(now);
     alignment_update(now);
     commands_update(now);
+
+    /* Pet the watchdog - must happen every iteration, and last, so a
+     * hang anywhere above (not just a literal infinite loop, but any
+     * module silently taking too long) is what trips the reset, not
+     * something after it. Guarded the same as the init above - Renode's
+     * IWDG timing can trip this spuriously; never define RENODE_BUILD
+     * for a binary you intend to flash. */
+#ifndef RENODE_BUILD
+    HAL_IWDG_Refresh(&hiwdg);
+#endif
   }
   /* USER CODE END 3 */
 }
