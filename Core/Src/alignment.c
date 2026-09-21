@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 #define STEPS_PER_MM    200L
-#define GO_STEPS        (-20L * STEPS_PER_MM)
+#define GO_STEPS        (-40L * STEPS_PER_MM)
 #define RECOVERY_MM     5.0f
 #define RECOVERY_STEPS  ((long)(RECOVERY_MM * STEPS_PER_MM))
 #define MAX_SKEW_STEPS  (5L * STEPS_PER_MM) /* 1000L steps = 5.0 mm */
