@@ -27,6 +27,7 @@
 #include "alignment.h"
 #include "system.h"
 #include "commands.h"
+#include "stakhal_build_info.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -141,6 +142,7 @@ int main(void)
   HAL_TIM_Base_Start_IT(&htim3);
 
   printf("READY\r\nCAL REQUIRED\r\n");
+  printf("STAKHAL_BUILD: %s\r\n", STAKHAL_BUILD_HASH);
   /* USER CODE END 2 */
 
   /* Initialize leds */
