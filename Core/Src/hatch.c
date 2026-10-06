@@ -2,8 +2,8 @@
 #include "main.h"   /* GRIP_IN1..4 pin macros from CubeMX */
 #include <stdio.h>
 
-#define OPEN_DURATION_MS   20000UL /* full stroke */
-#define CLOSE_DURATION_MS  20000UL /* full stroke */
+#define OPEN_DURATION_MS   25000UL /* full stroke */
+#define CLOSE_DURATION_MS  25000UL /* full stroke */
 #define HATCH_REFRESH_MS     300UL /* re-assert drive signal this often during a stroke */
 #define DEADTIME_MS           100UL /* break-before-make: H-bridge fully off this long
                                       * before driving the opposite direction, to avoid
