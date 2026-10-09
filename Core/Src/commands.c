@@ -39,6 +39,7 @@ static void cmd_ret(uint32_t now) {
 
 static void cmd_rst(uint32_t now) {
     (void)now;
+    hatch_emergency_stop(); /* RST must not leave the actuator driving */
     alignment_reset();
     system_clear_fault();
     printf("RST\r\nNO CAL\r\n");
@@ -58,7 +59,11 @@ static void cmd_close(uint32_t now) {
 
 static void cmd_stop(uint32_t now) {
     (void)now;
-    hatch_stop_cmd(); /* only affects the hatch's own state - see note below */
+    /* STOP is the user-facing normal stop: halt the hatch AND both axes.
+     * The axes are left de-calibrated with drivers disabled; a fresh CAL is
+     * required. It does not latch a fault. */
+    alignment_emergency_stop();
+    hatch_stop_cmd();
 }
 
 static void cmd_on(uint32_t now) {
