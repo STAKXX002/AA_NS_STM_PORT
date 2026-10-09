@@ -62,6 +62,12 @@ static void cmd_stop(uint32_t now) {
 
 static void cmd_on(uint32_t now) {
     (void)now;
+    /* Fault policy: while faulted only RST, OFF and STOP are accepted.
+     * system_fault() latches everything off - ON must not undo that. */
+    if (system_in_fault()) {
+        printf("FAULT - RST REQUIRED\r\n");
+        return;
+    }
     light_on();
     fan_on();
     printf("LIGHT & FAN ON\r\n");
