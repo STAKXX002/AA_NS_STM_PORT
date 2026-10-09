@@ -150,7 +150,7 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
  * UART RX line-buffer, so rx_buffer/rx_idx/cmd_ready above can stay
  * file-scope statics instead of project-wide globals. */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-    if (huart->Instance == uart->Instance) {
+    if (uart != NULL && huart->Instance == uart->Instance) {
         if (rx_char == '\r') {
             /* ignore CR so \r\n acts as a single line terminator */
         } else if (rx_char == '\n') {
