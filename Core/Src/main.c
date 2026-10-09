@@ -366,6 +366,10 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
+  /* Make outputs safe BEFORE spinning: with IRQs masked the step ISR stops,
+   * but drivers/relays/H-bridge would otherwise hold their last state until
+   * the watchdog resets the chip (~2s, or never if IWDG isn't started yet). */
+  system_force_safe_outputs();
   __disable_irq();
   while (1)
   {
