@@ -1,5 +1,6 @@
 #include "alignment.h"
 #include "system.h"   /* system_fault() coordinator */
+#include "critical.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -97,24 +98,24 @@ static bool limit_hit_confirmed(int i, GPIO_TypeDef* port, uint16_t pin, uint32_
  * guarantees the value used is from one exact instant rather than
  * possibly a step boundary. */
 static long axis_position_snapshot(int i) {
-    __disable_irq();
+    CRITICAL_ENTER();
     long pos = axes[i].current_pos;
-    __enable_irq();
+    CRITICAL_EXIT();
     return pos;
 }
 
 static void reset_axis_zero(void) {
-    __disable_irq();
+    CRITICAL_ENTER();
     for (int i = 0; i < 2; i++) {
         axes[i].current_pos = 0;
         axes[i].target_pos = 0;
         axes[i].step_accumulator = 0;
     }
-    __enable_irq();
+    CRITICAL_EXIT();
 }
 
 static void axis_move_to(int i, long target) {
-    __disable_irq();
+    CRITICAL_ENTER();
     axes[i].target_pos = target;
     axes[i].move_start_tick = isrTicks;
     axes[i].step_interval_current = STEP_INTERVAL_START;
@@ -124,7 +125,7 @@ static void axis_move_to(int i, long target) {
     } else if (target < axes[i].current_pos) {
         HAL_GPIO_WritePin(axes[i].dir_port, axes[i].dir_pin, GPIO_PIN_RESET);
     }
-    __enable_irq();
+    CRITICAL_EXIT();
 }
 
 static void axis_stop(int i) {
@@ -134,10 +135,10 @@ static void axis_stop(int i) {
 }
 
 static bool axes_done(void) {
-    __disable_irq();
+    CRITICAL_ENTER();
     bool done = (axes[0].current_pos == axes[0].target_pos) &&
                 (axes[1].current_pos == axes[1].target_pos);
-    __enable_irq();
+    CRITICAL_EXIT();
     return done;
 }
 

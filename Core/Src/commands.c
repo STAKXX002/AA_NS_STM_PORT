@@ -3,6 +3,7 @@
 #include "hatch.h"
 #include "relay.h"
 #include "system.h"
+#include "critical.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
@@ -110,10 +111,10 @@ void commands_update(uint32_t now) {
      * rx_buffer for the next line, and without this copy that could
      * happen mid-strcmp() against the buffer we're still reading. */
     char local_buf[sizeof(rx_buffer)];
-    __disable_irq();
+    CRITICAL_ENTER();
     memcpy(local_buf, (const void*)rx_buffer, sizeof(local_buf));
     cmd_ready = false;
-    __enable_irq();
+    CRITICAL_EXIT();
 
     for (unsigned i = 0; i < NUM_COMMANDS; i++) {
         if (strcmp(local_buf, commandTable[i].name) == 0) {
