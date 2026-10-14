@@ -2,22 +2,24 @@
 releases: pytest -m slow tests/test_e2e.py"""
 import pytest
 
+from harness import T_GO, T_HATCH, T_RET
+
 
 @pytest.mark.slow
 def test_full_sequence(sim):
   sim.calibrate()
 
   sim.uart('GO')
-  sim.expect('HOLD', timeout=60.0)
+  sim.expect('HOLD', timeout=T_GO)
 
   sim.uart('RET')
-  sim.expect('RETURNED', timeout=90.0)
+  sim.expect('RETURNED', timeout=T_RET)
 
   sim.uart('OPEN')
-  sim.expect('OPENED', timeout=60.0)
+  sim.expect('OPENED', timeout=T_HATCH)
 
   sim.uart('CLOSE')
-  sim.expect('CLOSED', timeout=60.0)
+  sim.expect('CLOSED', timeout=T_HATCH)
 
   sim.uart('ON')
   sim.expect('LIGHT & FAN ON')

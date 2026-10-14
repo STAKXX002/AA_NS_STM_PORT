@@ -3,6 +3,8 @@ import time
 
 import pytest
 
+from harness import T_GO, T_RET
+
 
 @pytest.mark.slow
 def test_calibration_sequence(sim):
@@ -13,15 +15,15 @@ def test_calibration_sequence(sim):
 @pytest.mark.slow
 def test_go_reaches_hold(calibrated):
   calibrated.uart('GO')
-  calibrated.expect('HOLD', timeout=60.0)
+  calibrated.expect('HOLD', timeout=T_GO)
 
 
 @pytest.mark.slow
 def test_return_after_go(calibrated):
   calibrated.uart('GO')
-  calibrated.expect('HOLD', timeout=60.0)
+  calibrated.expect('HOLD', timeout=T_GO)
   calibrated.uart('RET')
-  calibrated.expect('RETURNED', timeout=90.0)
+  calibrated.expect('RETURNED', timeout=T_RET)
 
 
 @pytest.mark.slow

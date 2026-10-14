@@ -21,6 +21,14 @@ LOG_DIR = os.path.join(SIM_DIR, 'logs')
 SIM_ELF = os.path.join(ROOT, 'build', 'Simulation', 'AA_NS_STM_V1.elf')
 PROMPT = r'\(stm32f446\)'
 
+# Renode simulates the 1 kHz step stream roughly 10x slower than real time.
+# Measured wall time: CAL ~12 s, GO (40 mm) ~75 s, hatch stroke ~63 s, and RET
+# ~215 s (the RETURNING state polls the limit switches, which is expensive in
+# Renode). Timeouts leave ~1.5-2x headroom. On a slower machine:
+#     SIM_TIMEOUT_SCALE=2 pytest simulation
+TIMEOUT_SCALE = float(os.environ.get('SIM_TIMEOUT_SCALE', '1'))
+T_CAL, T_GO, T_RET, T_HATCH = 40.0, 150.0, 400.0, 120.0
+
 ANSI_RE = re.compile(r'\x1b\[[0-9;?]*[A-Za-z]|\x1b[()][A-Za-z0-9]')
 CTRL_RE = re.compile(r'[^\x20-\x7e\n]')  # printable ASCII + newline only
 
@@ -186,6 +194,7 @@ class Sim:
   def expect(self, substring, timeout=20.0):
     """Waits until `substring` appears in the UART text since the last
     uart() call. Returns all text received so far."""
+    timeout *= TIMEOUT_SCALE
     end = time.time() + timeout
     while substring not in self.rx:
       if time.time() > end:
@@ -215,9 +224,9 @@ class Sim:
     self.uart('CAL')
     time.sleep(0.2)
     self.press(z1=True, z2=True)
-    self.expect('ZERO', timeout=15.0)
+    self.expect('ZERO', timeout=T_CAL)
     self.release()
-    self.expect('CAL OK', timeout=30.0)
+    self.expect('CAL OK', timeout=T_CAL)
 
   def fault(self):
     """Latches a fault: hold Z1 limit pressed, then CAL -> LIMIT ACTIVE.
