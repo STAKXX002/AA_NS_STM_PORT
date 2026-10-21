@@ -18,7 +18,7 @@ UART_PORT = 1234  # must match `CreateServerSocketTerminal` in run_stm32.resc
 SIM_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(SIM_DIR)
 LOG_DIR = os.path.join(SIM_DIR, 'logs')
-SIM_ELF = os.path.join(ROOT, 'build', 'Simulation', 'AA_NS_STM_V1.elf')
+SIM_ELF = os.path.join(ROOT, 'build', 'Simulation', 'AA_NS_STM_PORT.elf')
 PROMPT = r'\(stm32f446\)'
 
 # Renode simulates the 1 kHz step stream roughly 10x slower than real time.

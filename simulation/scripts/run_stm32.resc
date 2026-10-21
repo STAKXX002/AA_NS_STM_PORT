@@ -12,7 +12,7 @@ emulation SetGlobalQuantum "0.001"
 # than a real LSI oscillator and can trip it spuriously under this
 # quantum. Never point this at build/Release - that's what gets flashed,
 # and it always has the watchdog compiled in.)
-sysbus LoadELF @build/Simulation/AA_NS_STM_V1.elf
+sysbus LoadELF @build/Simulation/AA_NS_STM_PORT.elf
 
 # Set active-low limit switches (PB8, PB10) HIGH on boot (unpressed state)
 sysbus.gpioPortB OnGPIO 8 true

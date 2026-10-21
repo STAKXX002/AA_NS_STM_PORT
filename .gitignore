@@ -26,3 +26,6 @@ __pycache__/
 
 # StakHAL build traceability (generated)
 Core/Inc/stakhal_build_info.h
+
+*.log
+.pytest_cache/
